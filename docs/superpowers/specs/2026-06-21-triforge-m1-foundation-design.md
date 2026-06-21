@@ -368,19 +368,88 @@ not a bespoke settings store.
 
 ## 13. Testing strategy
 
-- **Unit (core, no editor)** — the bulk of M1's testable value:
-  - `schema`: validation accepts good manifests, rejects bad enums / missing
-    `project.name` / absolute paths; defaults applied correctly.
-  - `config-store-core`: round-trip parse→serialize preserves unknown sections and key
-    order; `modifiedAt` update logic.
-  - `importer`: legacy `config.json` → expected `triforge.json`, including verbatim
-    preservation of `input/output/compsetup/execution` and CRS derivation.
-  - `detector`: classifies `ready` / `needsImport` / `none` correctly.
-  - `crs`: representative UTM-zone+datum → EPSG mappings; graceful failure path.
-- **Integration smoke** (`@vscode/test-electron`): extension activates without error;
-  commands register; context keys set for a fixture folder with a valid `triforge.json`.
-- **TDD** per the superpowers workflow during execution (tests precede implementation for
-  `core`).
+Three layers — **unit** (pure core), **integration** (`@vscode/test-electron`), and a full
+**end-to-end user-scenario suite** that spans frontend → core → filesystem → VS Code.
+
+### 13.1 Unit (core, no editor) — the bulk of M1's testable value
+
+- `schema`: validation accepts good manifests, rejects bad enums / missing `project.name` /
+  absolute paths; defaults applied correctly (including the minimal-manifest case where only
+  `schemaVersion` + `project.name` are present and every other default is materialized in
+  memory without rewriting the sparse file).
+- `config-store-core`: round-trip parse→serialize preserves unknown sections and key order;
+  `modifiedAt`-on-save vs `createdAt`==`modifiedAt`-on-create discipline; deterministic
+  last-write-wins load logic.
+- `importer`: legacy `config.json` → expected `triforge.json`, including epoch→ISO timestamp
+  conversion, verbatim preservation of `input/output/compsetup/execution` with an
+  `_importedFrom` marker, default `paths.*`, and edge cases (missing/empty legacy name,
+  legacy enum values invalid under the new schema, corrupt legacy file, `config.json.bak`
+  collision).
+- `detector`: classifies `ready` / `needsImport` / `none` correctly (incl. non-Triton
+  `config.json` ⇒ `none`, and read-IO failure injected via a rejecting reader ⇒ invalid).
+- `crs`: representative UTM-zone+datum → EPSG mappings — WGS84 `326xx`/`327xx` (N/S), NAD83
+  `269xx`; zone/hemisphere boundary + malformed inputs; direct-EPSG-vs-derivation precedence;
+  graceful empty-on-failure path.
+
+### 13.2 Integration smoke (`@vscode/test-electron`)
+
+- Extension activates without error; commands register (`getCommands(true)`); the state
+  accessor reports the right value for a fixture folder with a valid `triforge.json`; the
+  `package.json` contribution contract matches §12 (activation event, container id/title,
+  `viewsWelcome` per state, `engines.vscode`).
+
+### 13.3 End-to-end user-scenario suite
+
+**Full plan + manual runbook:** companion doc `2026-06-21-triforge-m1-e2e-test-plan.md`
+(generated from a structured scenario set; carries per-scenario persona, preconditions,
+layered steps, observable expected outcomes, automation notes, and a results-tracking table).
+
+**Execution status:** these E2E scenarios are *design-time definitions* — they become
+runnable only once M1 is implemented (there is no Triforge build to run them against yet).
+During implementation the `auto`/`hybrid` layers become real automated tests; until then the
+companion doc is a **manual runbook** (F5 dev host → walk steps → tick Expected → fill the
+results table).
+
+**Suite:** **82 scenarios** (63 authored + 19 completeness-critic gap/edge cases) — **46 fully
+automatable, 36 hybrid** (webview-DOM / Restricted-Mode / `openFolder`-reload bits stay
+manual; see §13.4).
+
+| Category | # | auto / hybrid |
+|---|---|---|
+| Creation + form validation + idempotent scaffold + existing-manifest block | 7 | 2 / 5 |
+| Opening an existing valid `triforge.json` | 11 | 6 / 5 |
+| Legacy import | 8 | 6 / 2 |
+| No-manifest / welcome behavior | 7 | 2 / 5 |
+| Error handling | 7 | 5 / 2 |
+| Workspace trust & security | 7 | 2 / 5 |
+| Lifecycle transitions (no reload) + multi-root | 8 | 2 / 6 |
+| Teardown (multi-project removed) + round-trip persistence | 8 | 7 / 1 |
+| Completeness-critic gap & edge cases | 19 | 14 / 5 |
+
+### 13.4 Automation reality (auto vs manual boundary)
+
+- **Fully auto:** all `core/` logic; activation no-throw; command registration; `package.json`
+  contribution parsing; `vscode.workspace.fs` assertions (bytes/mtime/scaffold dirs/`.bak`);
+  spying `window.show*Message` / `createWebviewPanel` / fs writes (to prove no startup prompt
+  and no write-leaks while untrusted); reading test-exposed `TreeDataProvider` items.
+- **Context keys:** no public API reads them back — assert via a test-only state accessor or
+  by spying `setContext`; verify the literal `when`-clause UI manually once.
+- **Webview DOM (creation panel):** sandboxed iframe — test from the `postMessage` boundary
+  *inward* (drive the host message handler / core submit with crafted payloads; this makes
+  message-hardening fully auto). Live CRS preview, UTM-vs-EPSG mutual exclusion, inline error
+  rendering, disabled-Create state, and CSP/nonce are **manual**.
+- **Workspace trust:** the test host runs trusted; route the gate through a
+  `canWrite(isTrusted)` predicate the test controls and fire a synthetic
+  `onDidGrantWorkspaceTrust`. The real Restricted-Mode banner is **manual**.
+- **`openFolder` reload & watcher timing:** split reload scenarios into a pre-reload half (spy
+  `openFolder` + the globalState path-flag) and a post-reload half (pre-seed globalState);
+  never assert watcher events with fixed sleeps — poll for the eventual state with a timeout.
+
+### 13.5 TDD
+
+Per the superpowers workflow during execution: tests precede implementation for `core`. The
+E2E scenarios are the **acceptance backbone** — each maps to one or more automated tests plus,
+where marked, a manual verification step.
 
 ---
 
