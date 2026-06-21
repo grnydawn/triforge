@@ -342,7 +342,7 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
 - [ ] **Step 7: Run the test to verify it passes**
 
 Run: `npm run test:unit -- data.test`
-Expected: PASS (5 tests).
+Expected: PASS (6 tests).
 
 - [ ] **Step 8: Lint + commit**
 
@@ -496,7 +496,7 @@ export const FILE_TYPES: TritonFileType[] = [
 - [ ] **Step 4: Run to verify it passes**
 
 Run: `npm run test:unit -- data.test`
-Expected: PASS (8 tests total).
+Expected: PASS (9 tests total).
 
 - [ ] **Step 5: Commit**
 
@@ -1342,16 +1342,16 @@ export interface AiInstructionsDeps {
 }
 
 /**
- * Wire AI-instruction regeneration. onDidChangeState, onDidChangeConfig, and the settings-change
- * event ALL feed ONE debounced handler; idempotent skip-if-unchanged is the safety net for the M1
- * event cascade. Call BEFORE controller.start() so the initial 'ready' transition triggers a regen.
+ * Wire the debounced auto-regeneration funnel: onDidChangeState, onDidChangeConfig, and the
+ * settings-change event ALL feed ONE debounced handler; idempotent skip-if-unchanged is the safety
+ * net for the M1 event cascade. Returns disposables. Does NOT register commands, so it is safe to
+ * invoke directly in tests without colliding with the activated extension's global command IDs.
  */
-export function registerAiInstructions(
-  context: vscode.ExtensionContext,
+export function wireAutoRegeneration(
   controller: ProjectStateController,
   store: ConfigStore,
   deps: AiInstructionsDeps = {},
-): void {
+): vscode.Disposable[] {
   const writer = deps.writer ?? new InstructionWriter();
   const readCfg = deps.readCfg ?? readAiConfig;
   const debounceMs = deps.debounceMs ?? 250;
@@ -1372,12 +1372,30 @@ export function registerAiInstructions(
     timer = setTimeout(() => { void runRegen(); }, debounceMs);
   };
 
-  context.subscriptions.push(
+  return [
     controller.onDidChangeState(() => schedule()),
     store.onDidChangeConfig(() => schedule()),
     subscribeConfigChange(() => schedule()),
     { dispose: () => { if (timer) clearTimeout(timer); } },
-  );
+  ];
+}
+
+/**
+ * Register AI-instruction features: the debounced auto-regeneration funnel (via
+ * wireAutoRegeneration) plus the two commands. Call ONCE, BEFORE controller.start(), so the initial
+ * 'ready' transition triggers a regen. Commands are registered ONLY here (never inside the funnel),
+ * so tests can exercise wireAutoRegeneration directly without "command already exists" errors.
+ */
+export function registerAiInstructions(
+  context: vscode.ExtensionContext,
+  controller: ProjectStateController,
+  store: ConfigStore,
+  deps: AiInstructionsDeps = {},
+): void {
+  const writer = deps.writer ?? new InstructionWriter();
+  const readCfg = deps.readCfg ?? readAiConfig;
+
+  context.subscriptions.push(...wireAutoRegeneration(controller, store, { ...deps, writer, readCfg }));
 
   const reg = (id: string, fn: (...a: unknown[]) => unknown) =>
     context.subscriptions.push(vscode.commands.registerCommand(id, fn));
@@ -1476,7 +1494,7 @@ Create `src/test/integration/ai-instructions.test.ts`:
 ```ts
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { registerAiInstructions } from '../../vscode/ai-instructions';
+import { wireAutoRegeneration } from '../../vscode/ai-instructions';
 import { ProjectStateController } from '../../vscode/state';
 import { ConfigStore } from '../../vscode/config-store';
 import { InstructionWriter } from '../../vscode/instruction-writer';
@@ -1524,10 +1542,9 @@ describe('registerAiInstructions wiring', () => {
     const store = { current: parsed(), onDidChangeConfig: configEmitter.event } as unknown as ConfigStore;
     const writer = { regenerate: async () => { calls++; return { written: [], skipped: [] }; } } as unknown as InstructionWriter;
 
-    const subs: vscode.Disposable[] = [];
-    const ctx = { subscriptions: subs } as unknown as vscode.ExtensionContext;
-
-    registerAiInstructions(ctx, controller, store, {
+    // Exercise the funnel directly via wireAutoRegeneration — NOT registerAiInstructions, which
+    // would re-register the already-activated extension's global commands and throw.
+    const disposables = wireAutoRegeneration(controller, store, {
       writer,
       readCfg: () => ({ targets: ['agents'], autoRegenerate: over.autoRegenerate ?? true }),
       debounceMs: 20,
@@ -1538,7 +1555,7 @@ describe('registerAiInstructions wiring', () => {
       stateEmitter, configEmitter,
       fireConfigChange: () => cfgHandler(),
       getCalls: () => calls,
-      dispose: () => { for (const d of subs) d.dispose(); stateEmitter.dispose(); configEmitter.dispose(); },
+      dispose: () => { for (const d of disposables) d.dispose(); stateEmitter.dispose(); configEmitter.dispose(); },
     };
   }
 
