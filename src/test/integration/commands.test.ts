@@ -14,8 +14,7 @@ async function exists(uri: vscode.Uri): Promise<boolean> {
 }
 
 describe('command registration', () => {
-  // TODO(Task 14): unskip once extension.ts wires registerCommands into activate()
-  it.skip('registers all five triforge commands (E2E-TDN-03)', async () => {
+  it('registers all five triforge commands (E2E-TDN-03)', async () => {
     const ext = vscode.extensions.getExtension('grnydawn.triforge');
     await ext?.activate();
     const all = await vscode.commands.getCommands(true);
