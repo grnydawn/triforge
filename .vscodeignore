@@ -1,0 +1,12 @@
+triton-vscode-extension/**
+docs/**
+src/**
+out/**
+.vscode-test/**
+esbuild.js
+tsconfig*.json
+vitest.config.ts
+eslint.config.js
+.vscode-test.mjs
+**/*.test.ts
+notes.txt

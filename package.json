@@ -1,0 +1,80 @@
+{
+  "name": "triforge",
+  "displayName": "Triforge",
+  "description": "VS Code workspace for the Triton flood-inundation simulation framework.",
+  "version": "0.1.0",
+  "publisher": "grnydawn",
+  "license": "MIT",
+  "icon": "media/triforge.svg",
+  "repository": { "type": "git", "url": "https://github.com/grnydawn/triforge" },
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "triforge", "title": "Triforge", "icon": "media/triforge.svg" }
+      ]
+    },
+    "views": {
+      "triforge": [
+        { "id": "triforge.status", "name": "Project" }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "triforge.status",
+        "when": "triforge:state == none",
+        "contents": "No Triforge project is open in this folder.\n[Create Project Here](command:triforge.createProject)\n[Open Project Folder…](command:triforge.openProjectFolder)"
+      },
+      {
+        "view": "triforge.status",
+        "when": "triforge:state == needsImport",
+        "contents": "A legacy Triton project (config.json) was detected.\n[Import Legacy Project](command:triforge.importLegacyProject)\n[Create New Project Instead](command:triforge.createProject)"
+      },
+      {
+        "view": "triforge.status",
+        "when": "triforge:state == invalid",
+        "contents": "triforge.json exists but could not be loaded.\n[Open Manifest](command:triforge.openConfig)\n[Recreate Project](command:triforge.createProject)"
+      }
+    ],
+    "commands": [
+      { "command": "triforge.openProjectFolder", "title": "Open Project Folder…", "category": "Triforge" },
+      { "command": "triforge.createProject", "title": "Create Project Here", "category": "Triforge" },
+      { "command": "triforge.importLegacyProject", "title": "Import Legacy Project", "category": "Triforge" },
+      { "command": "triforge.openConfig", "title": "Open Manifest", "category": "Triforge", "icon": "$(json)" },
+      { "command": "triforge.revealInExplorer", "title": "Reveal Project in Explorer", "category": "Triforge", "icon": "$(folder-opened)" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "triforge.openConfig", "when": "view == triforge.status && triforge:active", "group": "navigation" },
+        { "command": "triforge.revealInExplorer", "when": "view == triforge.status && triforge:active", "group": "navigation" }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test:unit": "vitest run",
+    "compile:tests": "tsc -p tsconfig.test.json",
+    "pretest:integration": "node -e \"require('fs').mkdirSync('.vscode-test/empty-workspace',{recursive:true})\" && npm run build && npm run compile:tests",
+    "test:integration": "vscode-test",
+    "test": "npm run test:unit && npm run test:integration",
+    "vscode:prepublish": "npm run build"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.21.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  }
+}

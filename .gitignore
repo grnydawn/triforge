@@ -1,0 +1,8 @@
+node_modules/
+dist/
+out/
+media/creation.js
+media/creation.js.map
+.vscode-test/
+coverage/
+*.vsix
