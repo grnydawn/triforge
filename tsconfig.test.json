@@ -6,6 +6,6 @@
     "rootDir": "src",
     "types": ["node", "mocha"]
   },
-  "include": ["src/test/**/*.ts"],
+  "include": ["src/test/**/*.ts", "src/vscode/**/*.ts"],
   "exclude": ["src/webview/**", "src/core/**/*.test.ts", "node_modules"]
 }
