@@ -2567,6 +2567,97 @@ Critic-identified gaps (each addressed by a `GAP-…` scenario below):
 
 ---
 
+## M2a — AI instruction files (manual)
+
+These scenarios exercise the M2a Triton knowledge base + AI-instruction-file generation. Build the fixtures and launch the Extension Development Host with:
+
+```bash
+make fixtures
+make e2e E2E_DIR=manual-fixtures/ready
+```
+
+#### M2A-AI-01 — Generate on open
+
+**Steps:**
+
+1. Open the `ready` fixture as a folder (trusted).
+
+**Expected (verify each):**
+
+- [ ] `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, and `docs/triton-knowledge.md` appear.
+- [ ] `AGENTS.md` contains a `TRIFORGE:BEGIN` block with the project context.
+- [ ] `docs/triton-knowledge.md` lists all 9 sections and the file-type catalog.
+
+**Manual result:** _____ (PASS / FAIL / N-A) — notes:
+
+#### M2A-AI-02 — No-op on reopen
+
+**Steps:**
+
+1. Open the fixture a second time with no manifest change, then run `git status`.
+
+**Expected (verify each):**
+
+- [ ] No modified instruction files (generation is idempotent).
+
+**Manual result:** _____ (PASS / FAIL / N-A) — notes:
+
+#### M2A-AI-03 — Preserve user edits
+
+**Steps:**
+
+1. Add text below the `TRIFORGE:END` marker in `AGENTS.md`.
+2. Edit `triforge.json` (e.g. change the description) and save.
+
+**Expected (verify each):**
+
+- [ ] The managed block updates.
+- [ ] The user text below the marker is preserved.
+
+**Manual result:** _____ (PASS / FAIL / N-A) — notes:
+
+#### M2A-AI-04 — Targets setting
+
+**Steps:**
+
+1. Set `triforge.ai.instructionTargets` to `["agents","gemini"]`.
+2. Run **Triforge: Generate/Refresh AI Instructions**.
+
+**Expected (verify each):**
+
+- [ ] `GEMINI.md` is created.
+- [ ] No new `CLAUDE.md`/copilot files are written.
+- [ ] Existing ones are left in place (no de-provisioning).
+
+**Manual result:** _____ (PASS / FAIL / N-A) — notes:
+
+#### M2A-AI-05 — Untrusted
+
+**Steps:**
+
+1. Open the fixture in Restricted Mode and run the command.
+
+**Expected (verify each):**
+
+- [ ] An info message is shown.
+- [ ] No files are written.
+
+**Manual result:** _____ (PASS / FAIL / N-A) — notes:
+
+#### M2A-AI-06 — Open KB command
+
+**Steps:**
+
+1. Run **Triforge: Open Triton Knowledge Base**.
+
+**Expected (verify each):**
+
+- [ ] `docs/triton-knowledge.md` opens (generated first if missing).
+
+**Manual result:** _____ (PASS / FAIL / N-A) — notes:
+
+---
+
 ## Results tracking table (fill in during a manual pass)
 
 | ID | Mode | Result (PASS/FAIL/N-A) | Build/commit | Notes |
