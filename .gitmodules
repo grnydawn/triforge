@@ -1,0 +1,3 @@
+[submodule "triton-vscode-extension"]
+	path = triton-vscode-extension
+	url = git@github.com:grnydawn/triton-vscode-extension.git
