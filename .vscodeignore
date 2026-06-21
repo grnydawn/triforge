@@ -10,3 +10,4 @@ eslint.config.js
 .vscode-test.mjs
 **/*.test.ts
 notes.txt
+resources/triton/**
