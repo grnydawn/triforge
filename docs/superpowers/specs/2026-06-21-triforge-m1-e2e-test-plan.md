@@ -2653,3 +2653,28 @@ Critic-identified gaps (each addressed by a `GAP-…` scenario below):
 | GAP-DISP-01 | auto |  |  |  |
 | GAP-PKG-01 | auto |  |  |  |
 | GAP-PERSIST-09 | auto |  |  |  |
+
+---
+
+## M1 execution status — 2026-06-21 (implementation complete)
+
+The M1 plan (`docs/superpowers/plans/2026-06-21-triforge-m1-foundation.md`) was implemented across 15 commits on branch `triforge-m1-foundation`, each task spec- and quality-reviewed. Quality gates at completion:
+
+- `npm run check` (tsc --noEmit) — **clean**
+- `npm run lint` (eslint src) — **clean**
+- `npm run test:unit` (vitest, pure core) — **48/48 passing**
+- `xvfb-run -a npm run test:integration` (@vscode/test-electron) — **21/21 passing, 0 pending, 0 failing**
+- `src/core/` confirmed free of `vscode` imports
+- Final comprehensive review: all 8 spec §14 acceptance criteria **MET**; verdict **READY TO MERGE (M1)**.
+
+### Automated-verified scenarios (PASS via the test suite)
+Backed by passing unit/integration tests (the automatable layers per §13.4): E2E-CRE-01, E2E-CRE-04, E2E-CRE-05, E2E-CRE-06, E2E-CRE-07/E2E-TRUST (untrusted write block), E2E-OPEN-01, E2E-OPEN-02, E2E-OPEN-06 (display derivation), E2E-OPEN-09/E2E-TDN-08, E2E-ERR-01, E2E-IMP-04, E2E-IMP-07, E2E-TDN-02, E2E-TDN-03, GAP-VIEW-01, GAP-PKG-01 — plus the full pure-core behaviour set (schema / crs / config-store-core / create / importer / detector) under vitest.
+
+### Pending — manual F5 dev-host pass (genuinely-manual layers per §13.4)
+Run `npm run build`, press **F5**, and walk the webview-DOM / Restricted-Mode / `openFolder`-reload portions, ticking the Expected boxes and filling the results table above. Key items: E2E-CRE-01/02/03 (live CRS preview, UTM-vs-EPSG exclusion, disabled Create, inline errors), E2E-WEL-01/02 (welcome-vs-auto-create-via-open-action; reload), E2E-OPEN-05 (live watcher refresh of the view), E2E-OPEN-07 (view-title menu gating), E2E-TRUST-01/05 (real Restricted-Mode banner), E2E-OPEN-11 (higher-schemaVersion warning toast).
+
+### Deferred follow-ups (non-blocking for M1)
+- Replace the `package.json` top-level `icon` SVG with a ≥128×128 PNG before any `vsce package`/Marketplace publish (the activity-bar SVG stays).
+- Strengthen the webview CSP nonce: use `crypto.randomBytes`/`getRandomValues` instead of `Math.random()` (`src/vscode/creation-panel.ts`).
+- `src/webview/**` is excluded from `npm run check`; consider a `tsconfig.webview.json` so the webview script is type-checked (today it is only esbuild-bundled).
+- Optionally trust-gate `ConfigStore.writeParsed` directly (defence in depth; its only caller already checks trust first).
