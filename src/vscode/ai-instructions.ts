@@ -2,10 +2,9 @@ import * as vscode from 'vscode';
 import { ProjectStateController } from './state';
 import { ConfigStore } from './config-store';
 import { InstructionWriter } from './instruction-writer';
-import { InstructionTarget } from '../core/triton-kb';
+import { InstructionTarget, KB_REL } from '../core/triton-kb';
 
 const ALL_TARGETS: InstructionTarget[] = ['agents', 'claude', 'copilot', 'gemini', 'cursor'];
-const KB_REL = 'docs/triton-knowledge.md';
 
 export interface AiConfig { targets: InstructionTarget[]; autoRegenerate: boolean; }
 

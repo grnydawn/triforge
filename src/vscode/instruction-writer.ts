@@ -2,10 +2,9 @@ import * as vscode from 'vscode';
 import { ParsedManifest } from '../core/types';
 import {
   InstructionTarget, deriveProjectContext, renderKnowledgeBaseMarkdown,
-  renderTarget, spliceManagedRegion,
+  renderTarget, spliceManagedRegion, KB_REL,
 } from '../core/triton-kb';
 
-const KB_REL = 'docs/triton-knowledge.md';
 const TARGET_PATHS: Record<InstructionTarget, string> = {
   agents: 'AGENTS.md',
   claude: 'CLAUDE.md',
