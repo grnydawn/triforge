@@ -22,3 +22,27 @@ export function lookupFileType(id: string): TritonFileType | undefined {
   const key = (id ?? '').trim().toLowerCase();
   return FILE_TYPES.find((f) => f.id.toLowerCase() === key);
 }
+
+import { ParsedManifest } from '../types';
+import { ProjectContext } from './types';
+import { deriveCrs } from '../crs';
+
+export function deriveProjectContext(parsed: ParsedManifest): ProjectContext {
+  const m = parsed.manifest;
+  const derived = deriveCrs(m.spatial.utmZone, m.spatial.datum);
+  const ctx: ProjectContext = {
+    name: m.project.name,
+    description: m.project.description,
+    crs: m.spatial.crs,
+    utmZone: m.spatial.utmZone,
+    datum: m.spatial.datum,
+    inputFormat: m.io.inputFormat,
+    outputFormat: m.io.outputFormat,
+    inputDir: m.paths.inputDir,
+    outputDir: m.paths.outputDir,
+    buildDir: m.paths.buildDir,
+    hasImportedLegacy: Boolean(parsed.unknownSections['_importedFrom']),
+  };
+  if (derived) ctx.derivedCrs = derived;
+  return ctx;
+}
