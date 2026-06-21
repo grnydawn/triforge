@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ProjectStateKind, TriforgeManifest } from './core/types';
+import { samePath } from './core/paths';
 import { ConfigStore } from './vscode/config-store';
 import { ProjectStateController } from './vscode/state';
 import { ProjectStatusView } from './vscode/project-view';
@@ -28,7 +29,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Trifor
   // through triforge.openProjectFolder and has no manifest, auto-show the creation page.
   const flagged = context.globalState.get<string>(OPENED_VIA_TRIFORGE_KEY);
   const target = controller.targetFolder;
-  if (flagged && target && flagged === target.fsPath) {
+  if (flagged && target && samePath(flagged, target.fsPath, process.platform)) {
     await context.globalState.update(OPENED_VIA_TRIFORGE_KEY, undefined); // one-shot
     if (controller.state === 'none' || controller.state === 'needsImport') {
       await vscode.commands.executeCommand('triforge.createProject');

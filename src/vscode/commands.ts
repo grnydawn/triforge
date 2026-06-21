@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { importLegacy } from '../core/importer';
 import { ConfigStore, MANIFEST_FILENAME } from './config-store';
 import { ProjectStateController } from './state';
@@ -57,7 +58,7 @@ export function registerCommands(
     await vscode.workspace.fs.copy(legacyUri, bak, { overwrite: false });
     await store.writeParsed(folder, result.value);
     await controller.refresh();
-    vscode.window.showInformationMessage(`Triforge: imported "${result.value.manifest.project.name}". Original saved to ${bak.path.split('/').pop()}.`);
+    vscode.window.showInformationMessage(`Triforge: imported "${result.value.manifest.project.name}". Original saved to ${path.basename(bak.fsPath)}.`);
   });
 
   reg('triforge.openConfig', async () => {

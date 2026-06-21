@@ -6,3 +6,4 @@ media/creation.js.map
 .vscode-test/
 coverage/
 *.vsix
+manual-fixtures/
