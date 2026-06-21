@@ -5,6 +5,7 @@ import { ConfigStore } from './vscode/config-store';
 import { ProjectStateController } from './vscode/state';
 import { ProjectStatusView } from './vscode/project-view';
 import { registerCommands, OPENED_VIA_TRIFORGE_KEY } from './vscode/commands';
+import { registerAiInstructions } from './vscode/ai-instructions';
 
 export interface TriforgeApi {
   getState(): ProjectStateKind;
@@ -22,6 +23,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Trifor
   context.subscriptions.push(vscode.window.registerTreeDataProvider('triforge.status', view));
 
   registerCommands(context, controller, store);
+  registerAiInstructions(context, controller, store);
 
   await controller.start();
 

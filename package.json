@@ -44,13 +44,31 @@
       { "command": "triforge.createProject", "title": "Create Project Here", "category": "Triforge" },
       { "command": "triforge.importLegacyProject", "title": "Import Legacy Project", "category": "Triforge" },
       { "command": "triforge.openConfig", "title": "Open Manifest", "category": "Triforge", "icon": "$(json)" },
-      { "command": "triforge.revealInExplorer", "title": "Reveal Project in Explorer", "category": "Triforge", "icon": "$(folder-opened)" }
+      { "command": "triforge.revealInExplorer", "title": "Reveal Project in Explorer", "category": "Triforge", "icon": "$(folder-opened)" },
+      { "command": "triforge.generateAiInstructions", "title": "Generate/Refresh AI Instructions", "category": "Triforge" },
+      { "command": "triforge.openKnowledgeBase", "title": "Open Triton Knowledge Base", "category": "Triforge" }
     ],
     "menus": {
       "view/title": [
         { "command": "triforge.openConfig", "when": "view == triforge.status && triforge:active", "group": "navigation" },
         { "command": "triforge.revealInExplorer", "when": "view == triforge.status && triforge:active", "group": "navigation" }
       ]
+    },
+    "configuration": {
+      "title": "Triforge",
+      "properties": {
+        "triforge.ai.instructionTargets": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["agents", "claude", "copilot", "gemini", "cursor"] },
+          "default": ["agents", "claude", "copilot"],
+          "markdownDescription": "Which AI-assistant instruction files Triforge generates and maintains. `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` by default; `GEMINI.md` and `.cursor/rules/triton.mdc` are opt-in."
+        },
+        "triforge.ai.autoRegenerate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh AI instruction files when a project opens, triforge.json changes, or the Triforge AI settings change."
+        }
+      }
     }
   },
   "scripts": {
