@@ -69,3 +69,27 @@ describe('CONFIG_VARIABLES', () => {
     expect(byName['time_step'].defaultValue).toBe('1.0');
   });
 });
+
+import { FILE_TYPES } from './data';
+import { CATEGORY_ORDER } from './types';
+
+describe('FILE_TYPES', () => {
+  it('has 22 entries with unique ids', () => {
+    expect(FILE_TYPES).toHaveLength(22);
+    expect(new Set(FILE_TYPES.map((f) => f.id)).size).toBe(22);
+  });
+
+  it('populates every one of the 6 categories', () => {
+    for (const cat of CATEGORY_ORDER) {
+      expect(FILE_TYPES.some((f) => f.category === cat), cat).toBe(true);
+    }
+    for (const f of FILE_TYPES) expect(CATEGORY_ORDER).toContain(f.category);
+  });
+
+  it('only references real config-variable names in relatedVars', () => {
+    const names = new Set(CONFIG_VARIABLES.map((v) => v.name));
+    for (const f of FILE_TYPES) {
+      for (const rv of f.relatedVars) expect(names, `${f.id} -> ${rv}`).toContain(rv);
+    }
+  });
+});
