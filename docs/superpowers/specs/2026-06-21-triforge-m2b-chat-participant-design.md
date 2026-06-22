@@ -52,7 +52,7 @@ professional answerer inside the editor.
 | C3 | No project / untrusted | **Answer general KB anyway.** `@triton` always answers project-independent questions and runs `/config` `/files` `/defaults`, even with no open project or in an untrusted workspace (it only *reads* static knowledge). `/project` and project-specific questions note that no project is open. |
 | C4 | Engine & deps | Bump `engines.vscode` and `@types/vscode` to `^1.95.0`. **No new runtime dependency** — hand-rolled `vscode.chat` + `vscode.lm`. |
 | C5 | Architecture | Continue the M1/M2a split: pure `vscode`-free core (prompt building + deterministic rendering) + thin DI'd `src/vscode` adapter. |
-| C6 | Conflict source for `/defaults` | Derive the template-vs-UI conflict set **from the KB data** via a `listConflicts()` query (notes that mention the reference UI), not a duplicated hardcoded list. |
+| C6 | Conflict source for `/defaults` | Derive the template-vs-UI conflict set **from the KB data** via a `listConflicts()` query, not a duplicated hardcoded list. *(As built: implemented with an explicit `CONFLICT` marker constant in `data.ts` — a structured sibling to `INFERRED` — rather than the regex sketched in §6; see the §6 note.)* |
 | C7 | Testability | The chat handler is a separately-exported wireable factory (`createChatHandler`) driven directly in integration tests with a fake request/stream + injected fake model — the same rationale as M2a's `wireAutoRegeneration`. |
 
 ## 4. Architecture
@@ -145,14 +145,30 @@ message pointing at the four slash commands.
 
 ## 6. Core query: `listConflicts()` (in `queries.ts`)
 
+**As built.** Rather than regex-parsing free-text notes, `data.ts` exports a
+`CONFLICT = 'template-vs-UI conflict'` marker constant (an explicit sibling to
+the existing `INFERRED` marker) prepended to the note of each of the 5 conflict
+variables, and `listConflicts()` filters on that marker:
+
 ```ts
+// data.ts — structured marker, kept in the note so it renders inline with the
+// conflict explanation (consistent with how INFERRED renders today).
+export const CONFLICT = 'template-vs-UI conflict';
+// e.g. note: `${CONFLICT}: reference creation UI defaulted to 0.01`
+
+// queries.ts
 export function listConflicts(): ConfigVariable[] {
-  // The template-vs-UI conflicts are exactly the variables whose note references
-  // the reference creation UI; everything else is the 'inferred / undocumented'
-  // family. Derived, not hardcoded (C6).
-  return CONFIG_VARIABLES.filter((v) => !!v.note && /reference\b.*\bui\b/i.test(v.note));
+  return CONFIG_VARIABLES.filter((v) => !!v.note && v.note.includes(CONFLICT));
 }
 ```
+
+This is a strict improvement over the originally-sketched regex
+(`/reference\b.*\bui\b/i`): a structured discriminator can't silently widen if a
+note is edited, and it still honors C6 (derived from the data, never hardcoded).
+The only visible effect on M2a output is that the 5 conflict variables now render
+their note as `_(template-vs-UI conflict: …)_` in the knowledge base — stylistically
+identical to how `inferred / undocumented` notes already render. `render.ts` is
+unchanged; all M2a data/markers/render/parity tests stay green.
 
 Acceptance: returns **exactly** the 5 known conflicts — `time_step`,
 `print_observation`, `input_format`, `factor_interval_domain_decomposition`,
