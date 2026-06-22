@@ -17,7 +17,7 @@ const ok = (data: unknown): ToolResult => ({ content: [{ type: 'text', text: JSO
 const err = (message: string): ToolResult => ({ content: [{ type: 'text', text: JSON.stringify({ error: message }) }], isError: true });
 
 /** Load a grid by extension/sniff, using the project's DEM dims for headerless matrices. */
-function loadGrid(root: string, rel: string, kind: string | undefined, dims: { ncols?: number; nrows?: number; nodata?: number }): Grid {
+export function loadGrid(root: string, rel: string, kind: string | undefined, dims: { ncols?: number; nrows?: number; nodata?: number }): Grid {
   const abs = resolveWithinRoot(root, rel);
   const lower = abs.toLowerCase();
   const k = kind && kind !== 'auto' ? kind
@@ -41,12 +41,55 @@ function loadGrid(root: string, rel: string, kind: string | undefined, dims: { n
  * let `stitchSubdomains` place it into the DEM-sized grid (spec §4/§8: PAR-mode
  * linear concatenation). NODATA comes from the DEM so stitched empties read NODATA.
  */
-function readDepthPart(root: string, file: string, nodata: number): Grid {
+export function readDepthPart(root: string, file: string, nodata: number): Grid {
   const rel = file.startsWith(root) ? file.slice(root.length + 1) : file;
   const abs = resolveWithinRoot(root, rel);
   const isBinary = abs.toLowerCase().endsWith('.bin') || abs.includes(`${path.sep}bin${path.sep}`);
   if (isBinary) return parseBinaryGrid(fs.readFileSync(abs), nodata);
   return parseHeaderlessBody(fs.readFileSync(abs, 'utf8'), nodata);
+}
+
+/**
+ * Build the per-timestep grids for a variable: resolve candidate parts (scan or
+ * explicit `paths`), group by frame index, stitch PAR-mode subdomains into the
+ * DEM-sized grid (or read a self-describing ESRI .out when there is no DEM).
+ */
+export function computeFrames(root: string, a: { variable?: string; frame?: number; paths?: string[] }): { variable: string; frames: Grid[] } {
+  const variable = a.variable ?? 'H';
+  const s = scanProject(root);
+  const parts: OutputFrame[] = a.paths
+    ? a.paths.map((p, i) => frameOf(p) ?? { variable, frame: -1 - i, subdomain: 0, file: p })
+    : s.outputs.asc.filter((f) => f.variable === variable && (a.frame === undefined || f.frame === a.frame));
+  if (!parts.length) {
+    throw new Error(`no frames found for variable ${variable}${a.frame !== undefined ? ` frame ${a.frame}` : ''}`);
+  }
+  const dims = s.demGrid;
+  const byFrame = new Map<number, OutputFrame[]>();
+  for (const p of parts) {
+    const g = byFrame.get(p.frame) ?? [];
+    g.push(p);
+    byFrame.set(p.frame, g);
+  }
+  const frames: Grid[] = Array.from(byFrame.values()).map((group) => {
+    const sorted = [...group].sort((x, y) => x.subdomain - y.subdomain);
+    if (!dims) {
+      if (sorted.length > 1) {
+        throw new Error('cannot stitch subdomains without a detected DEM grid (no dimensions)');
+      }
+      const rel0 = sorted[0].file.startsWith(root) ? sorted[0].file.slice(root.length + 1) : sorted[0].file;
+      return parseEsriAsciiGrid(fs.readFileSync(resolveWithinRoot(root, rel0), 'utf8'));
+    }
+    const subParts = sorted.map((p) => readDepthPart(root, p.file, dims.nodata));
+    return stitchSubdomains(subParts, dims.ncols, dims.nrows, dims.nodata);
+  });
+  return { variable, frames };
+}
+
+/** Cellwise max over a variable's frames (stitched), with aggregate stats. */
+export function computeMaxDepth(root: string, a: { variable?: string; frame?: number; paths?: string[] }): { variable: string; frameCount: number; grid: Grid; stats: ReturnType<typeof maxDepth>['stats'] } {
+  const { variable, frames } = computeFrames(root, a);
+  const { grid, stats } = maxDepth(frames);
+  return { variable, frameCount: frames.length, grid, stats };
 }
 
 type GridWindow = { row: number; col: number; height: number; width: number };
@@ -164,43 +207,9 @@ export function buildToolHandlers(root: string) {
     triton_series_summary: wrap((a: { path: string }) => outputSeriesSummary(parseOutputSeries(read(a.path)))),
     triton_read_performance: wrap((a: { path: string }) => parsePerformance(read(a.path))),
     triton_max_depth: wrap((a: { variable?: string; frame?: number; paths?: string[]; window?: GridWindow }) => {
-      const variable = a.variable ?? 'H';
-      const s = scanProject(root);
-      // Resolve the candidate parts. `paths` overrides the scan; we still parse each
-      // filename so explicit PAR-mode subdomain files group/stitch by timestep too.
-      // A path that doesn't match `{VAR}_{FRAME}_{SUB}` is treated as its own
-      // single-part frame (synthetic, negative frame index so it never collides).
-      const parts: OutputFrame[] = a.paths
-        ? a.paths.map((p, i) => frameOf(p) ?? { variable, frame: -1 - i, subdomain: 0, file: p })
-        : s.outputs.asc.filter((f) => f.variable === variable && (a.frame === undefined || f.frame === a.frame));
-      if (!parts.length) {
-        throw new Error(`no frames found for variable ${variable}${a.frame !== undefined ? ` frame ${a.frame}` : ''}`);
-      }
-      const dims = s.demGrid;
-      // Group parts by timestep; within each timestep stitch the subdomains (sorted by
-      // subdomain index) into the DEM-sized grid, then take the cellwise max across
-      // timesteps (spec §8 / §11.3: "cellwise max over frames incl. subdomain stitch").
-      const byFrame = new Map<number, OutputFrame[]>();
-      for (const p of parts) {
-        const g = byFrame.get(p.frame) ?? [];
-        g.push(p);
-        byFrame.set(p.frame, g);
-      }
-      const frames: Grid[] = Array.from(byFrame.values()).map((group) => {
-        const sorted = [...group].sort((x, y) => x.subdomain - y.subdomain);
-        if (!dims) {
-          // No DEM to stitch into: each part is then a self-describing full grid (ESRI .out).
-          if (sorted.length > 1) {
-            throw new Error('cannot stitch subdomains without a detected DEM grid (no dimensions)');
-          }
-          return parseEsriAsciiGrid(read(sorted[0].file.startsWith(root) ? sorted[0].file.slice(root.length + 1) : sorted[0].file));
-        }
-        const subParts = sorted.map((p) => readDepthPart(root, p.file, dims.nodata));
-        return stitchSubdomains(subParts, dims.ncols, dims.nrows, dims.nodata);
-      });
-      const { grid, stats } = maxDepth(frames);
+      const { variable, frameCount, grid, stats } = computeMaxDepth(root, a);
       const result: { variable: string; frame?: number; frameCount: number; stats: typeof stats; window?: ReturnType<typeof windowCells> } =
-        { variable, frameCount: frames.length, stats };
+        { variable, frameCount, stats };
       if (a.frame !== undefined) result.frame = a.frame;
       if (a.window) result.window = windowCells(grid, a.window); // optional grid window (K6: only on request)
       return result;
