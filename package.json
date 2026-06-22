@@ -7,7 +7,7 @@
   "license": "MIT",
   "icon": "media/triforge.svg",
   "repository": { "type": "git", "url": "https://github.com/grnydawn/triforge" },
-  "engines": { "vscode": "^1.90.0" },
+  "engines": { "vscode": "^1.95.0" },
   "categories": ["Other"],
   "activationEvents": ["onStartupFinished"],
   "main": "./dist/extension.js",
@@ -69,7 +69,22 @@
           "description": "Automatically refresh AI instruction files when a project opens, triforge.json changes, or the Triforge AI settings change."
         }
       }
-    }
+    },
+    "chatParticipants": [
+      {
+        "id": "triforge.triton",
+        "name": "triton",
+        "fullName": "Triton",
+        "description": "Ask about Triton config variables, file types, and your project",
+        "isSticky": true,
+        "commands": [
+          { "name": "config",   "description": "Explain a Triton config variable" },
+          { "name": "files",    "description": "List or explain Triton file types" },
+          { "name": "project",  "description": "Summarize the open Triton project" },
+          { "name": "defaults", "description": "Show template defaults and known conflicts" }
+        ]
+      }
+    ]
   },
   "scripts": {
     "build": "node esbuild.js",
@@ -85,7 +100,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.11.0",
-    "@types/vscode": "^1.90.0",
+    "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "@vscode/test-cli": "^0.0.10",
