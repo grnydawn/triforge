@@ -49,3 +49,36 @@ describe('grid serializers (round-trip through the real parsers)', () => {
     expect(() => serializeHeaderlessMatrix(g)).toThrow(/values length/);
   });
 });
+
+import {
+  parsePointList, parseBoundaries, parseForcingSeries,
+} from './index';
+import {
+  serializePointList, serializeBoundaries, serializeForcingSeries,
+} from './serialize';
+
+const real = join(process.cwd(), 'resources/triton-examples/real');
+
+describe('table serializers (round-trip through the real parsers)', () => {
+  it('point list round-trips (.src) with a canonical header', () => {
+    const orig = parsePointList(readFileSync(join(real, 'allatoona.src'), 'utf8'));
+    const txt = serializePointList(orig);
+    expect(txt.startsWith('%')).toBe(true);
+    const rt = parsePointList(txt);
+    expect(rt).toEqual(orig);
+  });
+  it('boundaries round-trip (.extbc)', () => {
+    const orig = parseBoundaries(readFileSync(join(real, 'allatoona.extbc'), 'utf8'));
+    const rt = parseBoundaries(serializeBoundaries(orig));
+    expect(rt).toEqual(orig);
+  });
+  it('forcing series round-trips (.hyg), re-interleaving time + columns', () => {
+    const orig = parseForcingSeries(readFileSync(join(real, 'allatoona.hyg'), 'utf8'));
+    const rt = parseForcingSeries(serializeForcingSeries(orig));
+    expect(rt.times).toEqual(orig.times);
+    expect(rt.columns).toEqual(orig.columns);
+  });
+  it('forcing rejects a column/time length mismatch', () => {
+    expect(() => serializeForcingSeries({ times: [0, 1], columns: [[5]] })).toThrow(/disagrees with times/);
+  });
+});

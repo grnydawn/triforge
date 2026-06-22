@@ -46,3 +46,23 @@ export function serializeHeaderlessMatrix(g: Grid): string {
   assertDims(g);
   return gridBody(g).join('\n') + '\n';
 }
+
+/** Serialize a point list (.src/.obs): canonical % header + comma-delimited X,Y. */
+export function serializePointList(pts: { x: number; y: number }[], header = '%X-Location,Y-Location'): string {
+  return [header, ...pts.map((p) => `${formatNum(p.x)},${formatNum(p.y)}`)].join('\n') + '\n';
+}
+
+/** Serialize boundary segments (.extbc): canonical % header + comma-delimited Type,X1,Y1,X2,Y2,BC. */
+export function serializeBoundaries(segs: BoundarySegment[], header = '% BC Type, X1, Y1, X2, Y2, BC'): string {
+  return [header, ...segs.map((s) => [s.bcType, s.x1, s.y1, s.x2, s.y2, s.bc].map(formatNum).join(','))].join('\n') + '\n';
+}
+
+/** Serialize a forcing series (.hyg/.roff): optional % header + re-interleaved [time, col0, col1, …] rows. */
+export function serializeForcingSeries(d: ForcingData, header?: string[]): string {
+  const n = d.times.length;
+  for (const col of d.columns) if (col.length !== n) throw new Error('forcing series: column length disagrees with times');
+  const lines: string[] = [];
+  if (header && header.length) lines.push('% ' + header.join(', '));
+  for (let r = 0; r < n; r++) lines.push([d.times[r], ...d.columns.map((c) => c[r])].map(formatNum).join(','));
+  return lines.join('\n') + '\n';
+}
