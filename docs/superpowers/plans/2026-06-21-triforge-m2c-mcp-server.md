@@ -1273,7 +1273,7 @@ Append to `docs/superpowers/specs/2026-06-21-triforge-m1-e2e-test-plan.md`:
 
 - **M2C-MCP-01** Configure an MCP client (Claude Desktop/Code) to launch `node bin/triforge-mcp.js <project>` with `~/temp` as the project; confirm the `triton_*` tools appear.
 - **M2C-MCP-02** Ask it to run `triton_project_overview` → lists circular/paraboloid/allatoona configs, inputs, output frames/series, and grids.
-- **M2C-MCP-03** `triton_read_config` on `circular_dambreak.cfg` → 38 entries, quoted paths stripped; `triton_grid_extent` on `paraboloid.dem` → 200×200, cellsize 0.02.
+- **M2C-MCP-03** `triton_read_config` on `circular_dambreak.cfg` → 37 entries, quoted paths stripped; `triton_grid_extent` on `paraboloid.dem` → 200×200, cellsize 0.02.
 - **M2C-MCP-04** `triton_forcing_summary` on `allatoona.hyg` → per-source peak discharge + time; `triton_read_points` on `allatoona.src` → 2 points.
 - **M2C-MCP-05** `triton_max_depth` over the `H_*` output frames → max-depth stats; confirm no full-grid dump.
 - **M2C-MCP-06** Request a path outside the project (e.g. `/etc/passwd`) → tool error, no read.

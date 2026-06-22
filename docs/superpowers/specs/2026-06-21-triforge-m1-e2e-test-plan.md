@@ -2777,3 +2777,12 @@ Run `npm run build`, press **F5**, and walk the webview-DOM / Restricted-Mode / 
 - **M2B-CHAT-03** In a folder with no Triton project: `@triton /config courant` works; `@triton /project` reports no project; a free-form question answers generally and notes project-specifics are unavailable.
 - **M2B-CHAT-04** With no language model installed/consented: a free-form `@triton` question returns the friendly fallback; slash commands still work.
 - **M2B-CHAT-05** Follow-up suggestions appear and are relevant; clicking one re-asks `@triton`.
+
+## M2c — Triton file MCP server (manual)
+
+- **M2C-MCP-01** Configure an MCP client (Claude Desktop/Code) to launch `node bin/triforge-mcp.js <project>` with `~/temp` as the project; confirm the `triton_*` tools appear.
+- **M2C-MCP-02** Ask it to run `triton_project_overview` → lists circular/paraboloid/allatoona configs, inputs, output frames/series, and grids.
+- **M2C-MCP-03** `triton_read_config` on `circular_dambreak.cfg` → 37 entries, quoted paths stripped; `triton_grid_extent` on `paraboloid.dem` → 200×200, cellsize 0.02.
+- **M2C-MCP-04** `triton_forcing_summary` on `allatoona.hyg` → per-source peak discharge + time; `triton_read_points` on `allatoona.src` → 2 points.
+- **M2C-MCP-05** `triton_max_depth` over the `H_*` output frames → max-depth stats; confirm no full-grid dump.
+- **M2C-MCP-06** Request a path outside the project (e.g. `/etc/passwd`) → tool error, no read.
