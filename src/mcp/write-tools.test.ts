@@ -115,3 +115,27 @@ describe('grid & table write tools', () => {
     expect(f.columns).toEqual([[10, 20, 5]]);
   });
 });
+
+describe('save_image', () => {
+  let root: string;
+  beforeEach(() => { root = freshMini(); });
+  afterEach(() => { fs.rmSync(join(root, '..'), { recursive: true, force: true }); });
+
+  it('renders a grid heatmap to a PNG file on disk', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    const dry = parse(await h.triton_save_image({ source: 'grid', out: 'dem.png', path: 'dem.dem' }));
+    expect(dry.dryRun).toBe(true);
+    expect(dry.mimeType).toBe('image/png');
+    expect(fs.existsSync(join(root, 'dem.png'))).toBe(false);
+
+    parse(await h.triton_save_image({ source: 'grid', out: 'dem.png', path: 'dem.dem', confirm: true }));
+    expect(Array.from(fs.readFileSync(join(root, 'dem.png')).slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+  });
+
+  it('propagates a render error (e.g. path escape) instead of writing', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    const res = await h.triton_save_image({ source: 'grid', out: 'x.png', path: '../../etc/passwd', confirm: true });
+    expect(res.isError).toBe(true);
+    expect(parse(res).error).toMatch(/render error|escapes/);
+  });
+});

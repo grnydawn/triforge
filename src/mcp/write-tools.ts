@@ -171,6 +171,27 @@ export function buildWriteHandlers(root: string, opts: { allowWrite: boolean }) 
       if (a.confirm !== true) return { dryRun: true, path: a.path, action, rows: a.times.length, columns: a.columns.length, bytes: Buffer.byteLength(content), preview: head(content), warnings };
       return commit(root, a.path, content, action, warnings);
     }),
+    triton_save_image: wrap(async (a: { source: 'grid' | 'dem' | 'max_depth' | 'animation'; out: string; overwrite?: boolean; confirm?: boolean; [k: string]: unknown }) => {
+      const toolBySource: Record<string, string> = { grid: 'triton_render_grid', dem: 'triton_render_dem', max_depth: 'triton_render_max_depth', animation: 'triton_animate' };
+      const toolName = toolBySource[a.source];
+      if (!toolName) throw new Error(`unknown image source '${a.source}'`);
+      const target = resolveWritableTarget(root, a.out);
+      const exists = fs.existsSync(target);
+      if (exists && a.overwrite !== true) throw new Error(`file exists: ${a.out} (pass overwrite:true to replace)`);
+      const renderArgs: Record<string, unknown> = { ...a };
+      delete renderArgs.source; delete renderArgs.out; delete renderArgs.overwrite; delete renderArgs.confirm;
+      const res = await (viz as Record<string, (x: any) => Promise<{ content: Array<{ type: string; data?: string; mimeType?: string; text?: string }>; isError?: boolean }>>)[toolName](renderArgs);
+      if (res.isError) {
+        const msg = res.content.find((c) => c.type === 'text')?.text ?? 'render failed';
+        throw new Error(`save_image render error: ${msg}`);
+      }
+      const img = res.content.find((c) => c.type === 'image');
+      if (!img || !img.data) throw new Error('save_image: renderer returned no image');
+      const bytes = new Uint8Array(Buffer.from(img.data, 'base64'));
+      const action = exists ? 'overwrite' : 'create';
+      if (a.confirm !== true) return { dryRun: true, path: a.out, action, mimeType: img.mimeType, bytes: bytes.length };
+      return commit(root, a.out, bytes, action, []);
+    }),
   };
 }
 
@@ -182,4 +203,5 @@ export const WRITE_TOOL_SPECS: Array<{ name: keyof ReturnType<typeof buildWriteH
   { name: 'triton_write_points', description: 'Write a point list (.src/.obs) from X,Y points. Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), points: z.array(z.object({ x: z.number(), y: z.number() })), header: z.string().optional(), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
   { name: 'triton_write_boundaries', description: 'Write external boundary segments (.extbc). Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), segments: z.array(z.object({ bcType: z.number(), x1: z.number(), y1: z.number(), x2: z.number(), y2: z.number(), bc: z.number() })), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
   { name: 'triton_write_forcing', description: 'Write a forcing series (.hyg/.roff) from times + per-source/zone columns. Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), times: z.array(z.number()), columns: z.array(z.array(z.number())), header: z.array(z.string()).optional(), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
+  { name: 'triton_save_image', description: 'Render a grid/dem/max_depth to a PNG file, or an animation to a GIF file, on disk (reuses the visualize tools). Dry-run unless confirm:true. Requires --allow-write.', input: { source: z.enum(['grid', 'dem', 'max_depth', 'animation']), out: z.string(), path: z.string().optional(), kind: z.string().optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), hillshade: z.boolean().optional(), maxDim: z.number().int().min(16).optional(), variable: z.string().optional(), paths: z.array(z.string()).optional(), fps: z.number().min(0.1).optional(), range: z.tuple([z.number(), z.number()]).optional(), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
 ];
