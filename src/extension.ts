@@ -6,6 +6,7 @@ import { ProjectStateController } from './vscode/state';
 import { ProjectStatusView } from './vscode/project-view';
 import { registerCommands, OPENED_VIA_TRIFORGE_KEY } from './vscode/commands';
 import { registerAiInstructions } from './vscode/ai-instructions';
+import { registerChatParticipant } from './vscode/chat-participant';
 
 export interface TriforgeApi {
   getState(): ProjectStateKind;
@@ -24,6 +25,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Trifor
 
   registerCommands(context, controller, store);
   registerAiInstructions(context, controller, store);
+  registerChatParticipant(context, controller, store);
 
   await controller.start();
 
