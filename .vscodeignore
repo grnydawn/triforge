@@ -11,3 +11,7 @@ eslint.config.js
 **/*.test.ts
 notes.txt
 resources/triton/**
+bin/**
+esbuild.mcp.js
+tsconfig.mcp.json
+resources/triton-examples/**

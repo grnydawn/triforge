@@ -12,5 +12,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["src/**/*.test.ts", "src/test/**", "src/webview/**"]
+  "exclude": ["src/**/*.test.ts", "src/test/**", "src/webview/**", "src/mcp/**"]
 }

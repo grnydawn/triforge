@@ -20,6 +20,9 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
+  "bin": {
+    "triforge-mcp": "bin/triforge-mcp.js"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -166,8 +169,9 @@
     ]
   },
   "scripts": {
-    "build": "node esbuild.js",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "node esbuild.js && node esbuild.mcp.js",
+    "build:mcp": "node esbuild.mcp.js",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.mcp.json --noEmit",
     "lint": "eslint src",
     "test:unit": "vitest run",
     "compile:tests": "tsc -p tsconfig.test.json",
