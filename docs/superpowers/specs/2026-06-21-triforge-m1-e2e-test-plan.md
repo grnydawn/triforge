@@ -2769,3 +2769,11 @@ Run `npm run build`, press **F5**, and walk the webview-DOM / Restricted-Mode / 
 - Strengthen the webview CSP nonce: use `crypto.randomBytes`/`getRandomValues` instead of `Math.random()` (`src/vscode/creation-panel.ts`).
 - `src/webview/**` is excluded from `npm run check`; consider a `tsconfig.webview.json` so the webview script is type-checked (today it is only esbuild-bundled).
 - Optionally trust-gate `ConfigStore.writeParsed` directly (defence in depth; its only caller already checks trust first).
+
+## M2b — @triton chat participant (manual)
+
+- **M2B-CHAT-01** Open a trusted Triton project; in Chat ask `@triton what does courant control and is mine safe?` → a grounded conversational answer (requires a language model / Copilot).
+- **M2B-CHAT-02** `@triton /config courant`, `/config`, `/files`, `/files esri-ascii-dem`, `/project`, `/defaults` → correct deterministic markdown, no model needed.
+- **M2B-CHAT-03** In a folder with no Triton project: `@triton /config courant` works; `@triton /project` reports no project; a free-form question answers generally and notes project-specifics are unavailable.
+- **M2B-CHAT-04** With no language model installed/consented: a free-form `@triton` question returns the friendly fallback; slash commands still work.
+- **M2B-CHAT-05** Follow-up suggestions appear and are relevant; clicking one re-asks `@triton`.
