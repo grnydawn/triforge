@@ -1,5 +1,5 @@
 import { ConfigVariable, TritonFileType } from './types';
-import { CONFIG_VARIABLES, FILE_TYPES } from './data';
+import { CONFIG_VARIABLES, FILE_TYPES, CONFLICT } from './data';
 
 export function listConfigVariables(): ConfigVariable[] {
   return CONFIG_VARIABLES;
@@ -12,6 +12,16 @@ export function lookupConfigVariable(name: string): ConfigVariable | undefined {
 
 export function getConfigVariablesBySection(section: string): ConfigVariable[] {
   return CONFIG_VARIABLES.filter((v) => v.section === section);
+}
+
+/**
+ * The template-vs-UI conflicts: variables whose note carries the structured
+ * CONFLICT marker (the sibling discriminator to INFERRED). Everything else with
+ * a note is the 'inferred / undocumented' family. Derived from the data (C6) —
+ * never a hardcoded list, and not coupled to incidental note wording.
+ */
+export function listConflicts(): ConfigVariable[] {
+  return CONFIG_VARIABLES.filter((v) => !!v.note && v.note.includes(CONFLICT));
 }
 
 export function listFileTypes(): TritonFileType[] {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   listConfigVariables, lookupConfigVariable, getConfigVariablesBySection,
-  listFileTypes, lookupFileType,
+  listFileTypes, lookupFileType, listConflicts,
 } from './queries';
 
 describe('config queries', () => {
@@ -70,5 +70,25 @@ describe('deriveProjectContext', () => {
   it('flags hasImportedLegacy when _importedFrom is present', () => {
     expect(deriveProjectContext(parsed({}, { _importedFrom: 'config.json' })).hasImportedLegacy).toBe(true);
     expect(deriveProjectContext(parsed({}, {})).hasImportedLegacy).toBe(false);
+  });
+});
+
+describe('listConflicts', () => {
+  it('returns exactly the 5 documented template-vs-UI conflicts', () => {
+    const names = listConflicts().map((v) => v.name).sort();
+    expect(names).toEqual(
+      ['factor_interval_domain_decomposition', 'input_format', 'open_boundaries', 'print_observation', 'time_step'].sort(),
+    );
+  });
+
+  it('excludes INFERRED-family variables whose note is set but not UI-related', () => {
+    // These have a non-empty note but it does not reference the creation UI, so
+    // they belong to the 'inferred / undocumented' family — not a conflict. This
+    // guards against the selection regex becoming too broad and pulling them in.
+    const names = listConflicts().map((v) => v.name);
+    for (const inferred of ['checkpoint_id', 'const_mann', 'runoff_filename', 'runoff_map', 'extbc_file']) {
+      expect(lookupConfigVariable(inferred)?.note).toBeTruthy();
+      expect(names).not.toContain(inferred);
+    }
   });
 });

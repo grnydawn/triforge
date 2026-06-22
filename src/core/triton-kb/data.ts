@@ -3,6 +3,15 @@ import { ConfigVariable } from './types';
 const INFERRED = 'inferred / undocumented';
 
 /**
+ * Structured discriminator for the template-vs-UI conflict family — the sibling
+ * concept to INFERRED. Tagged into a variable's note marks it as a conflict so
+ * listConflicts() can filter on a marker instead of parsing free-text prose.
+ * Kept in the note string (rather than a separate field) so it renders inline
+ * with the conflict explanation in the knowledge base.
+ */
+export const CONFLICT = 'template-vs-UI conflict';
+
+/**
  * The Triton run-config catalog. Single source of truth (D2).
  * defaultValue = the value in triton_execution.cfg.template (the literal default file).
  * Transcribed from resources/triton/configuration_variables.md (section + meaning)
@@ -20,7 +29,7 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
   { name: 'time_increment_fixed', section: 'Simulation Control', valueType: 'enum', allowed: ['0', '1'], defaultValue: '0',
     details: '0 uses an adaptive timestep (governed by courant); 1 uses a fixed timestep (time_step).' },
   { name: 'time_step', section: 'Simulation Control', valueType: 'float', defaultValue: '1.0', unit: 'seconds',
-    details: 'Fixed timestep used when time_increment_fixed = 1.', note: 'reference creation UI defaulted to 0.01' },
+    details: 'Fixed timestep used when time_increment_fixed = 1.', note: `${CONFLICT}: reference creation UI defaulted to 0.01` },
 
   // --- Surface Roughness (Manning’s n) (2) --- (section label must match the doc EXACTLY, incl. the ’ U+2019 apostrophe; the parity test enforces this)
   { name: 'const_mann', section: 'Surface Roughness (Manning’s n)', valueType: 'float', defaultValue: '',
@@ -73,7 +82,7 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
     details: 'Time in seconds between raster outputs.' },
   { name: 'print_observation', section: 'Output Control', valueType: 'int', defaultValue: '1',
     details: 'Switch to write observation outputs.',
-    note: `ambiguous switch-vs-interval; reference UI used 900; ${INFERRED}` },
+    note: `${CONFLICT}: ambiguous switch-vs-interval; reference UI used 900; ${INFERRED}` },
   { name: 'print_option', section: 'Output Control', valueType: 'enum', allowed: ['h', 'huv'], defaultValue: 'huv',
     details: 'Which raster fields to output. The doc documents h and huv.',
     note: `field combos beyond h/huv ${INFERRED}` },
@@ -83,7 +92,7 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
   // --- Input and Output Formats (5) ---
   { name: 'input_format', section: 'Input and Output Formats', valueType: 'enum', allowed: ['ASC', 'BIN'], defaultValue: 'BIN',
     details: 'Input raster format: ASC or BIN.',
-    note: "the manifest's io.inputFormat governs an actual run; reference UI defaulted to ASC" },
+    note: `${CONFLICT}: the manifest's io.inputFormat governs an actual run; reference UI defaulted to ASC` },
   { name: 'outfile_pattern', section: 'Input and Output Formats', valueType: 'string', defaultValue: '%s/%s/%s_%02d_%02d',
     details: 'Naming convention for output files.', note: `printf substitutions ${INFERRED}` },
   { name: 'output_format', section: 'Input and Output Formats', valueType: 'enum', allowed: ['ASC', 'BIN', 'GTIFF'], defaultValue: 'ASC',
@@ -100,7 +109,7 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
     details: 'Partitioning mode for parallel runs: static or dynamic.', note: `static-vs-dynamic semantics ${INFERRED}` },
   { name: 'factor_interval_domain_decomposition', section: 'Miscellaneous Parameters', valueType: 'int', defaultValue: '1',
     details: 'Update frequency used when domain decomposition is dynamic.',
-    note: `reference UI used 2; units ${INFERRED}` },
+    note: `${CONFLICT}: reference UI used 2; units ${INFERRED}` },
   { name: 'gpu_direct_flag', section: 'Miscellaneous Parameters', valueType: 'enum', allowed: ['0', '1'], defaultValue: '0',
     details: 'CUDA-aware MPI toggle. 0 off, 1 on.' },
   { name: 'hextra', section: 'Miscellaneous Parameters', valueType: 'float', defaultValue: '0.001', unit: 'm',
@@ -109,7 +118,7 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
     details: 'Internal counter, usually left at 0.' },
   { name: 'open_boundaries', section: 'Miscellaneous Parameters', valueType: 'enum', allowed: ['0', '1'], defaultValue: '1',
     details: 'Global switch to open domain edges; ignored when explicit boundaries are defined.',
-    note: 'reference creation UI defaulted to 0' },
+    note: `${CONFLICT}: reference creation UI defaulted to 0` },
 ];
 
 import { TritonFileType } from './types';
