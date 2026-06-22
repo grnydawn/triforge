@@ -156,7 +156,8 @@ byte-summary); raw cell arrays are never echoed back.
   return `{ action, bytes, dims }`. Dry-run never calls `fs.write`.
 - **Atomic write + backup (W4).** `backupRotate(target)` copies an existing
   target to the next free `.bak[.N]` before any change; `atomicWrite(target,
-  data)` writes to a sibling temp file, `fsync`s, then `rename`s over the target.
+  data)` writes to a sibling temp file, then `rename`s over the target (atomic
+  visibility — never a half-written file in place of a good one).
 - **Path safety (W8 + new).** `resolveWritableTarget(root, p)` runs the existing
   lexical + symlink checks AND, for a not-yet-existing target, `realpath`s the
   **parent directory** and re-checks containment — closing the create-time

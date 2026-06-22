@@ -2786,3 +2786,14 @@ Run `npm run build`, press **F5**, and walk the webview-DOM / Restricted-Mode / 
 - **M2C-MCP-04** `triton_forcing_summary` on `allatoona.hyg` → per-source peak discharge + time; `triton_read_points` on `allatoona.src` → 2 points.
 - **M2C-MCP-05** `triton_max_depth` over the `H_*` output frames → max-depth stats; confirm no full-grid dump.
 - **M2C-MCP-06** Request a path outside the project (e.g. `/etc/passwd`) → tool error, no read.
+
+## M2c-3 — WRITE (manual)
+
+Launch with the write gate: `node bin/triforge-mcp.js <project> --allow-write` (or `TRITON_ALLOW_WRITE=1`). Use a scratch copy of `~/temp`, not the originals.
+
+- **M2C-WRITE-01** Start the server **without** `--allow-write`; call `triton_set_config_variable` on a `.cfg` → refused with `<write-disabled>`, file untouched.
+- **M2C-WRITE-02** Restart with `--allow-write`; `triton_set_config_variable {time_step: '0.01'}` dry-run → a change list showing only that key, file untouched; re-call with `confirm:true` → committed, original backed up to `.cfg.bak`, comments preserved.
+- **M2C-WRITE-03** `triton_write_grid format='headerless' fill=0.035` for a `.mann` raster → dimensions match the project DEM; the file re-parses via `triton_read_grid` to a uniform grid.
+- **M2C-WRITE-04** `triton_write_forcing` building a triangular `.hyg` flood wave → re-parses via `triton_read_forcing`; a desynced `num_sources` surfaces a non-blocking W7 warning.
+- **M2C-WRITE-05** `triton_save_image source='dem' out='dem.png'` on `paraboloid.dem` → a PNG file on disk identical to the inline `triton_render_dem` bytes.
+- **M2C-WRITE-06** Request a write to a path outside the project root (via `..` and via a symlinked parent) → both refused (no write).

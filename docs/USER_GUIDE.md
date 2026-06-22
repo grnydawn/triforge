@@ -295,7 +295,7 @@ The knowledge base currently documents **38 configuration variables** (across 9 
 
 ### 3.9 The MCP server
 
-Run `node bin/triforge-mcp.js [projectDir]` (see §1.4 for client config). The server is **read-only** and **path-confined**: every file access is resolved within the project root, and any path that escapes it (via `..` or a symlink) is refused. It exposes **23 tools**.
+Run `node bin/triforge-mcp.js [projectDir]` (see §1.4 for client config). The server is **path-confined**: every file access is resolved within the project root, and any path that escapes it (via `..` or a symlink) is refused. It exposes **30 tools** — 29 read/analyze/visualize tools plus the write tools. **Writes are off by default**: the 7 write tools are advertised but refuse to run unless the server is started with `--allow-write` (or `TRITON_ALLOW_WRITE=1`). When enabled, each write **dry-runs by default** (returns a change preview, touches nothing) and commits only when called with `confirm: true`; commits are atomic and back up any overwritten file to `<name>.bak`.
 
 A core discipline (the "summaries-first" rule): tools return **metadata + statistics by default** and only return raw cell values or large rasters when you explicitly ask. Concretely:
 
@@ -347,6 +347,16 @@ All visualize tools return **MCP image content** (base64 PNG or GIF) plus a shor
 | `triton_plot_series` | Plot an output series (Time vs value per point) as a PNG line chart. | `path` *(required)*, `points?`, `maxPoints?` *(default 8)* |
 | `triton_plot_forcing` | Plot a forcing series (`.hyg`/`.roff`, time in hours) as a PNG line chart. | `path` *(required)*, `columns?` |
 | `triton_animate` | Animate a variable's output frames over time as an animated GIF (consistent global colormap range). | `variable?`, `paths?`, `colormap?` *(default `depth`)*, `fps?` *(default 4)*, `maxDim?`, `range?[min,max]` |
+
+#### Group E — Write (require `--allow-write`; dry-run unless `confirm: true`)
+
+- `triton_set_config_variable {path, updates, confirm?}` — surgically set/unset `.cfg` keys, preserving comments, quoting, and order.
+- `triton_write_config {path, entries, order?, overwrite?, confirm?}` — generate a fresh `.cfg` from a canonical template.
+- `triton_write_grid {path, format, fill? | values?, …, overwrite?, confirm?}` — write an ESRI `.dem` or headerless matrix (dims from the project DEM when omitted).
+- `triton_write_points {path, points, header?, overwrite?, confirm?}` — write a `.src`/`.obs` point list.
+- `triton_write_boundaries {path, segments, overwrite?, confirm?}` — write an `.extbc` boundary table.
+- `triton_write_forcing {path, times, columns, header?, overwrite?, confirm?}` — write a `.hyg`/`.roff` forcing series.
+- `triton_save_image {source, out, …render-params, overwrite?, confirm?}` — render a grid/DEM/max-depth to a PNG file, or an animation to a GIF file.
 
 **Grid-format hint (`kind`).** Where present, `kind` is `esri` / `headerless` / `binary`. If omitted, the format is sniffed by extension (`.dem`→ESRI, `.bin`→binary, else headerless). **Headerless** grids (e.g. `.inith`, ASCII `.out`) need dimensions — supply `ncols`/`nrows`, or rely on the project's detected DEM grid.
 
