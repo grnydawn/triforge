@@ -139,3 +139,27 @@ describe('save_image', () => {
     expect(parse(res).error).toMatch(/render error|escapes/);
   });
 });
+
+describe('path-escape rejection at the write tool boundary (M2C-WRITE-06)', () => {
+  let root: string;
+  beforeEach(() => { root = freshMini(); });
+  afterEach(() => { fs.rmSync(join(root, '..'), { recursive: true, force: true }); });
+
+  it('refuses a `..` traversal write and creates no file outside root', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    const res = await h.triton_write_grid({ path: '../escape.mann', format: 'headerless', fill: 0, confirm: true });
+    expect(res.isError).toBe(true);
+    expect(parse(res).error).toMatch(/escapes/);
+    expect(fs.existsSync(join(root, '..', 'escape.mann'))).toBe(false);
+  });
+
+  it('refuses a write through a symlinked parent dir on create', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    const outsideDir = join(root, '..', 'outside2');
+    fs.mkdirSync(outsideDir, { recursive: true });
+    fs.symlinkSync(outsideDir, join(root, 'link'), 'dir');
+    const res = await h.triton_write_points({ path: 'link/evil.src', points: [{ x: 1, y: 2 }], confirm: true });
+    expect(res.isError).toBe(true);
+    expect(parse(res).error).toMatch(/symlink parent/);
+  });
+});
