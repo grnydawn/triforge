@@ -7,3 +7,4 @@ media/creation.js.map
 coverage/
 *.vsix
 manual-fixtures/
+bin/
