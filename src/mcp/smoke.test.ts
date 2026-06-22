@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { execSync } from 'child_process';
 import { join } from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
@@ -45,5 +47,47 @@ describe('stdio MCP smoke', () => {
     } finally {
       await client.close();
     }
+  }, 30000);
+});
+
+describe('stdio MCP write gate', () => {
+  function freshMini(): string {
+    const dir = fs.mkdtempSync(join(fs.realpathSync(os.tmpdir()), 'triforge-smoke-w-'));
+    fs.cpSync(join(process.cwd(), 'resources/triton-examples/mini'), join(dir, 'proj'), { recursive: true });
+    return join(dir, 'proj');
+  }
+  async function connect(root: string, allowWrite: boolean) {
+    const args = [join(process.cwd(), 'bin/triforge-mcp.js'), root];
+    if (allowWrite) args.push('--allow-write');
+    const transport = new StdioClientTransport({ command: 'node', args });
+    const client = new Client({ name: 'smoke-write', version: '0.0.0' });
+    await client.connect(transport);
+    return client;
+  }
+  const textOf = (res: any) => (res.content as { type: string; text: string }[])[0].text;
+
+  it('lists write tools; dry-run then commit with --allow-write', async () => {
+    const root = freshMini();
+    const client = await connect(root, true);
+    try {
+      expect((await client.listTools()).tools.map((t) => t.name)).toContain('triton_set_config_variable');
+      const dry = await client.callTool({ name: 'triton_set_config_variable', arguments: { path: 'mini.cfg', updates: { sim_duration: '77' } } });
+      expect(JSON.parse(textOf(dry)).dryRun).toBe(true);
+      expect(fs.readFileSync(join(root, 'mini.cfg'), 'utf8')).toContain('sim_duration=25');
+      const done = await client.callTool({ name: 'triton_set_config_variable', arguments: { path: 'mini.cfg', updates: { sim_duration: '77' }, confirm: true } });
+      expect(JSON.parse(textOf(done)).written).toBe(true);
+      expect(fs.readFileSync(join(root, 'mini.cfg'), 'utf8')).toContain('sim_duration=77');
+    } finally { await client.close(); fs.rmSync(join(root, '..'), { recursive: true, force: true }); }
+  }, 30000);
+
+  it('refuses a write without --allow-write', async () => {
+    const root = freshMini();
+    const client = await connect(root, false);
+    try {
+      const res = await client.callTool({ name: 'triton_set_config_variable', arguments: { path: 'mini.cfg', updates: { sim_duration: '77' }, confirm: true } });
+      expect((res as { isError?: boolean }).isError).toBe(true);
+      expect(textOf(res)).toMatch(/write-disabled/);
+      expect(fs.readFileSync(join(root, 'mini.cfg'), 'utf8')).toContain('sim_duration=25');
+    } finally { await client.close(); fs.rmSync(join(root, '..'), { recursive: true, force: true }); }
   }, 30000);
 });
