@@ -71,7 +71,7 @@ else `<write-disabled>`); (2) `resolveWritableTarget` (lexical `..` + symlink
 escape on the target AND its parent dir); (3) build the new bytes from a pure
 serializer; (4) if dry-run → return a preview (diff for text, byte-summary for
 binary) and stop; (5) on `confirm:true` → `backupRotate` any existing target,
-then `atomicWrite` (temp file in the same dir, `fsync`, `rename`).
+then `atomicWrite` (temp file in the same dir, then `rename`).
 
 **Lenient-in / strict-out.** Readers tolerate mixed delimiters, casing, and
 optional fields; serializers commit to one canonical form per format (comma for
