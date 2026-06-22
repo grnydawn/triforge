@@ -3,3 +3,4 @@ export * from './grid';
 export * from './config';
 export * from './tables';
 export * from './analyze';
+export * from './serialize';
