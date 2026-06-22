@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseEsriAsciiGrid, parseEsriHeader, parseHeaderlessMatrix, parseBinaryGrid } from './grid';
+import { parseEsriAsciiGrid, parseEsriHeader, parseHeaderlessMatrix, parseHeaderlessBody, parseBinaryGrid } from './grid';
 
 describe('parseEsriAsciiGrid', () => {
   const text = [
@@ -76,6 +76,17 @@ describe('parseHeaderlessMatrix', () => {
     [NaN, 2],
   ])('rejects implausible dimensions ncols=%s nrows=%s', (ncols, nrows) => {
     expect(() => parseHeaderlessMatrix('1 2 3', ncols, nrows)).toThrow(/implausible dimensions/);
+  });
+});
+
+describe('parseHeaderlessBody', () => {
+  it('reads a flat value sequence of unknown shape (1xN) for PAR-mode subdomain parts', () => {
+    const g = parseHeaderlessBody('0.1 0.2\n0.3', -9999);
+    expect(g.nrows).toBe(1); expect(g.ncols).toBe(3);
+    expect(Array.from(g.values)).toEqual([0.1, 0.2, 0.3]);
+  });
+  it('rejects a non-numeric token', () => {
+    expect(() => parseHeaderlessBody('1 2 x')).toThrow(/non-numeric value 'x'/);
   });
 });
 

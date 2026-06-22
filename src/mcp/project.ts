@@ -37,7 +37,8 @@ function walk(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
-function frameOf(file: string): OutputFrame | undefined {
+/** Parse a Triton output filename `{VAR}_{FRAME}_{SUB}.{out,tif}` into its frame fields (undefined if it doesn't match). */
+export function frameOf(file: string): OutputFrame | undefined {
   const m = path.basename(file).match(FRAME_RE);
   return m ? { variable: m[1], frame: Number(m[2]), subdomain: Number(m[3]), file } : undefined;
 }

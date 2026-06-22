@@ -86,6 +86,26 @@ export function parseHeaderlessMatrix(text: string, ncols: number, nrows: number
   return { ncols, nrows, nodata, values: parseFloats(text.split(/\r\n|\n|\r/), ncols * nrows) };
 }
 
+/**
+ * Parse a headerless ASCII body of unknown shape into a flat 1×N grid.
+ * Used for PAR-mode subdomain parts (`{VAR}_{FRAME}_{SUB}.out`), whose individual
+ * dimensions are not recorded in the file — the parts are linearly concatenated
+ * into the DEM-sized grid via `stitchSubdomains`, so only the value sequence (in
+ * file order) matters here.
+ */
+export function parseHeaderlessBody(text: string, nodata = -9999): Grid {
+  const vals: number[] = [];
+  for (const line of text.split(/\r\n|\n|\r/)) {
+    const t = line.trim();
+    if (!t) continue;
+    for (const tok of t.split(/\s+/)) {
+      if (!NUMERIC.test(tok)) throw new Error(`grid: non-numeric value '${tok}' at index ${vals.length}`);
+      vals.push(Number(tok));
+    }
+  }
+  return { ncols: vals.length, nrows: 1, nodata, values: Float64Array.from(vals) };
+}
+
 /** Parse a Triton binary grid (.bin / binary .out): 16-byte LE Float64 header (nrows@0, ncols@8) + body. */
 export function parseBinaryGrid(buf: Buffer, nodata = -9999): Grid {
   if (buf.length < 16) throw new Error('binary grid: too small for header');
