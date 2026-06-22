@@ -82,3 +82,45 @@ describe('table serializers (round-trip through the real parsers)', () => {
     expect(() => serializeForcingSeries({ times: [0, 1], columns: [[5]] })).toThrow(/disagrees with times/);
   });
 });
+
+import { parseTritonConfig } from './index';
+import { serializeConfigCanonical, editConfigText, IsPathVar } from './serialize';
+
+const isPath: IsPathVar = (k) => ['dem_filename', 'src_loc_file', 'n_infile'].includes(k.toLowerCase());
+
+describe('config serializers', () => {
+  it('canonical generation round-trips entries+order and quotes path vars only', () => {
+    const orig = parseTritonConfig(readFileSync(join(mini, 'mini.cfg'), 'utf8'));
+    const txt = serializeConfigCanonical(orig, isPath);
+    expect(txt).toContain('dem_filename="dem.dem"');
+    expect(txt).toContain('num_sources=1');
+    const rt = parseTritonConfig(txt);
+    expect(rt.entries).toEqual(orig.entries);
+    expect(rt.order).toEqual(orig.order);
+  });
+
+  it('surgical edit preserves comments/quoting/order, changing only targeted keys', () => {
+    const original = readFileSync(join(mini, 'mini.cfg'), 'utf8');
+    const edited = editConfigText(original, { sim_duration: '50', output_format: 'GTIFF' }, isPath);
+    expect(edited).toContain('# mini Triton project');
+    expect(edited).toContain('dem_filename="dem.dem"');
+    expect(edited).toMatch(/(^|\n)sim_duration=50(\n|$)/);
+    expect(edited).toMatch(/(^|\n)output_format=GTIFF(\n|$)/);
+    expect(edited.split('\n').length).toBe(original.split('\n').length); // no comment/blank lost
+    const rt = parseTritonConfig(edited);
+    expect(rt.order).toEqual(parseTritonConfig(original).order);
+    expect(rt.entries.sim_duration).toBe('50');
+    expect(rt.entries.dem_filename).toBe('dem.dem');
+    expect(rt.entries.input_format).toBe('ASC');
+  });
+
+  it('surgical edit adds a new key (path-quoted) and deletes via null', () => {
+    const original = readFileSync(join(mini, 'mini.cfg'), 'utf8');
+    const edited = editConfigText(original, { n_infile: 'roughness.mann', num_sources: null }, isPath);
+    const rt = parseTritonConfig(edited);
+    expect(edited).toContain('n_infile="roughness.mann"');
+    expect(rt.entries.n_infile).toBe('roughness.mann');
+    expect('num_sources' in rt.entries).toBe(false);
+    expect(edited.endsWith('\n')).toBe(true);
+  });
+});

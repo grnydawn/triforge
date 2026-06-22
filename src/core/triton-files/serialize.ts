@@ -66,3 +66,48 @@ export function serializeForcingSeries(d: ForcingData, header?: string[]): strin
   for (let r = 0; r < n; r++) lines.push([d.times[r], ...d.columns.map((c) => c[r])].map(formatNum).join(','));
   return lines.join('\n') + '\n';
 }
+
+function quoteVal(key: string, v: string, isPathVar: IsPathVar): string {
+  return isPathVar(key) ? `"${v}"` : v;
+}
+
+/** Generate a fresh .cfg from a config structure: canonical key=value in `order`, path vars double-quoted. */
+export function serializeConfigCanonical(cfg: TritonConfig, isPathVar: IsPathVar): string {
+  return cfg.order.map((k) => `${k}=${quoteVal(k, cfg.entries[k] ?? '', isPathVar)}`).join('\n') + '\n';
+}
+
+/**
+ * Surgically edit a .cfg: set or (with null) delete keys, preserving #-comments,
+ * blank lines, key order, and the original key/`=`-spacing of edited lines. New
+ * keys are appended (path vars quoted). Returns edited text (trailing newline guaranteed).
+ */
+export function editConfigText(original: string, updates: Record<string, string | null>, isPathVar: IsPathVar): string {
+  const nl = original.includes('\r\n') ? '\r\n' : '\n';
+  const parts = original.split(/\r\n|\n|\r/);
+  const handled = new Set<string>();
+  const out = parts.map((line) => {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) return line; // preserve comments and blank lines
+    const eq = line.indexOf('=');
+    if (eq < 0) return line;
+    const key = line.slice(0, eq).trim();
+    if (!(key in updates)) return line;
+    handled.add(key);
+    const val = updates[key];
+    if (val === null) return null; // delete
+    const m = line.match(/^(\s*[^=]*?=\s*)/); // preserve leading ws + key + '=' spacing
+    return (m ? m[1] : `${key}=`) + quoteVal(key, val, isPathVar);
+  }).filter((l): l is string => l !== null);
+  const appended: string[] = [];
+  for (const [key, val] of Object.entries(updates)) {
+    if (val === null || handled.has(key)) continue;
+    appended.push(`${key}=${quoteVal(key, val, isPathVar)}`);
+  }
+  if (appended.length) {
+    if (out.length && out[out.length - 1] === '') out.splice(out.length - 1, 0, ...appended);
+    else out.push(...appended);
+  }
+  let result = out.join(nl);
+  if (!result.endsWith(nl)) result += nl;
+  return result;
+}
