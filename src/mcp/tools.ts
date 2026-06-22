@@ -13,8 +13,8 @@ import {
 } from '../core/triton-kb';
 
 export type ToolResult = { content: { type: 'text'; text: string }[]; isError?: boolean };
-const ok = (data: unknown): ToolResult => ({ content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] });
-const err = (message: string): ToolResult => ({ content: [{ type: 'text', text: JSON.stringify({ error: message }) }], isError: true });
+export const ok = (data: unknown): ToolResult => ({ content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] });
+export const err = (message: string): ToolResult => ({ content: [{ type: 'text', text: JSON.stringify({ error: message }) }], isError: true });
 
 /** Load a grid by extension/sniff, using the project's DEM dims for headerless matrices. */
 export function loadGrid(root: string, rel: string, kind: string | undefined, dims: { ncols?: number; nrows?: number; nodata?: number }): Grid {
@@ -130,7 +130,7 @@ function downsampleGrid(g: Grid, factor: number): { factor: number; ncols: numbe
 const DOWNSAMPLE_CELL_CAP = 4096;
 
 /** Config-variable names the KB types as file paths (drives referenced-file existence checks). */
-function pathVarNames(): Set<string> {
+export function pathVarNames(): Set<string> {
   return new Set(listConfigVariables().filter((v) => v.valueType === 'path').map((v) => v.name.toLowerCase()));
 }
 
