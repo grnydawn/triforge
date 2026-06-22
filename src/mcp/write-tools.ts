@@ -130,6 +130,47 @@ export function buildWriteHandlers(root: string, opts: { allowWrite: boolean }) 
       if (a.confirm !== true) return { dryRun: true, path: a.path, action, bytes: Buffer.byteLength(content), preview: head(content), warnings };
       return commit(root, a.path, content, action, warnings);
     }),
+    triton_write_grid: wrap((a: { path: string; format: 'esri' | 'headerless'; fill?: number; values?: number[]; ncols?: number; nrows?: number; cellsize?: number; xll?: number; yll?: number; nodata?: number; overwrite?: boolean; confirm?: boolean }) => {
+      const target = resolveWritableTarget(root, a.path);
+      const exists = fs.existsSync(target);
+      if (exists && a.overwrite !== true) throw new Error(`grid exists: ${a.path} (pass overwrite:true to replace)`);
+      const g = gridFromArgs(root, a);
+      const content = a.format === 'esri' ? serializeEsriAsciiGrid(g) : serializeHeaderlessMatrix(g);
+      const action = exists ? 'overwrite' : 'create';
+      if (a.confirm !== true) return { dryRun: true, path: a.path, action, format: a.format, ncols: g.ncols, nrows: g.nrows, nodata: g.nodata, bytes: Buffer.byteLength(content), preview: head(content) };
+      return commit(root, a.path, content, action, []);
+    }),
+    triton_write_points: wrap((a: { path: string; points: { x: number; y: number }[]; header?: string; overwrite?: boolean; confirm?: boolean }) => {
+      const target = resolveWritableTarget(root, a.path);
+      const exists = fs.existsSync(target);
+      if (exists && a.overwrite !== true) throw new Error(`file exists: ${a.path} (pass overwrite:true to replace)`);
+      const content = serializePointList(a.points, a.header);
+      const warnings = tableRefWarnings(root, 'num_sources', a.points.length);
+      const action = exists ? 'overwrite' : 'create';
+      if (a.confirm !== true) return { dryRun: true, path: a.path, action, points: a.points.length, bytes: Buffer.byteLength(content), preview: head(content), warnings };
+      return commit(root, a.path, content, action, warnings);
+    }),
+    triton_write_boundaries: wrap((a: { path: string; segments: { bcType: number; x1: number; y1: number; x2: number; y2: number; bc: number }[]; overwrite?: boolean; confirm?: boolean }) => {
+      const target = resolveWritableTarget(root, a.path);
+      const exists = fs.existsSync(target);
+      if (exists && a.overwrite !== true) throw new Error(`file exists: ${a.path} (pass overwrite:true to replace)`);
+      const content = serializeBoundaries(a.segments);
+      const warnings = tableRefWarnings(root, 'num_extbc', a.segments.length);
+      const action = exists ? 'overwrite' : 'create';
+      if (a.confirm !== true) return { dryRun: true, path: a.path, action, segments: a.segments.length, bytes: Buffer.byteLength(content), preview: head(content), warnings };
+      return commit(root, a.path, content, action, warnings);
+    }),
+    triton_write_forcing: wrap((a: { path: string; times: number[]; columns: number[][]; header?: string[]; overwrite?: boolean; confirm?: boolean }) => {
+      const target = resolveWritableTarget(root, a.path);
+      const exists = fs.existsSync(target);
+      if (exists && a.overwrite !== true) throw new Error(`file exists: ${a.path} (pass overwrite:true to replace)`);
+      const content = serializeForcingSeries({ times: a.times, columns: a.columns }, a.header);
+      const countVar = a.path.toLowerCase().endsWith('.roff') ? 'num_runoffs' : 'num_sources';
+      const warnings = tableRefWarnings(root, countVar, a.columns.length);
+      const action = exists ? 'overwrite' : 'create';
+      if (a.confirm !== true) return { dryRun: true, path: a.path, action, rows: a.times.length, columns: a.columns.length, bytes: Buffer.byteLength(content), preview: head(content), warnings };
+      return commit(root, a.path, content, action, warnings);
+    }),
   };
 }
 
@@ -137,4 +178,8 @@ export function buildWriteHandlers(root: string, opts: { allowWrite: boolean }) 
 export const WRITE_TOOL_SPECS: Array<{ name: keyof ReturnType<typeof buildWriteHandlers>; description: string; input: z.ZodRawShape }> = [
   { name: 'triton_set_config_variable', description: 'Surgically set/unset .cfg keys (preserves comments/quoting/order). Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), updates: z.record(z.string(), z.string().nullable()), confirm: z.boolean().optional() } },
   { name: 'triton_write_config', description: 'Generate a fresh .cfg from entries (canonical template). Refuses to clobber unless overwrite:true. Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), entries: z.record(z.string(), z.string()), order: z.array(z.string()).optional(), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
+  { name: 'triton_write_grid', description: 'Write an ESRI .dem or headerless matrix from a constant fill or explicit values (dims from the project DEM when omitted). Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), format: z.enum(['esri', 'headerless']), fill: z.number().optional(), values: z.array(z.number()).optional(), ncols: z.number().int().optional(), nrows: z.number().int().optional(), cellsize: z.number().optional(), xll: z.number().optional(), yll: z.number().optional(), nodata: z.number().optional(), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
+  { name: 'triton_write_points', description: 'Write a point list (.src/.obs) from X,Y points. Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), points: z.array(z.object({ x: z.number(), y: z.number() })), header: z.string().optional(), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
+  { name: 'triton_write_boundaries', description: 'Write external boundary segments (.extbc). Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), segments: z.array(z.object({ bcType: z.number(), x1: z.number(), y1: z.number(), x2: z.number(), y2: z.number(), bc: z.number() })), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
+  { name: 'triton_write_forcing', description: 'Write a forcing series (.hyg/.roff) from times + per-source/zone columns. Dry-run unless confirm:true. Requires --allow-write.', input: { path: z.string(), times: z.array(z.number()), columns: z.array(z.array(z.number())), header: z.array(z.string()).optional(), overwrite: z.boolean().optional(), confirm: z.boolean().optional() } },
 ];

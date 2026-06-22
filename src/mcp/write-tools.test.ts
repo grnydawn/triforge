@@ -65,3 +65,53 @@ describe('write gate + config write tools', () => {
     expect(rt.entries).toEqual({ dem_filename: 'd.dem', num_sources: '1' });
   });
 });
+
+import { parseHeaderlessMatrix, parsePointList, parseBoundaries, parseForcingSeries } from '../core/triton-files';
+
+describe('grid & table write tools', () => {
+  let root: string;
+  beforeEach(() => { root = freshMini(); });
+  afterEach(() => { fs.rmSync(join(root, '..'), { recursive: true, force: true }); });
+
+  it('write_grid headerless fill uses the DEM dims and round-trips', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    const done = parse(await h.triton_write_grid({ path: 'roughness.mann', format: 'headerless', fill: 0.035, confirm: true }));
+    expect(done.written).toBe(true);
+    const g = parseHeaderlessMatrix(fs.readFileSync(join(root, 'roughness.mann'), 'utf8'), 3, 2, -9999);
+    expect(Array.from(g.values)).toEqual([0.035, 0.035, 0.035, 0.035, 0.035, 0.035]);
+  });
+
+  it('write_grid esri fill inherits DEM georef and round-trips', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    parse(await h.triton_write_grid({ path: 'flat.dem', format: 'esri', fill: 1, confirm: true }));
+    const txt = fs.readFileSync(join(root, 'flat.dem'), 'utf8');
+    expect(txt).toContain('cellsize 10');
+    expect(txt).toContain('xllcorner 100');
+  });
+
+  it('write_grid rejects an oversized explicit values array', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    const res = await h.triton_write_grid({ path: 'big.mann', format: 'headerless', values: new Array(5000).fill(0), ncols: 100, nrows: 50, confirm: true });
+    expect(res.isError).toBe(true);
+    expect(parse(res).error).toMatch(/cell cap/);
+  });
+
+  it('write_points round-trips and warns on a num_sources mismatch (W7)', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    const dry = parse(await h.triton_write_points({ path: 'gauges.obs', points: [{ x: 1, y: 2 }, { x: 3, y: 4 }] }));
+    expect(dry.warnings.join(' ')).toMatch(/num_sources=1 but writing 2/); // mini.cfg has num_sources=1
+    parse(await h.triton_write_points({ path: 'gauges.obs', points: [{ x: 1, y: 2 }, { x: 3, y: 4 }], confirm: true }));
+    expect(parsePointList(fs.readFileSync(join(root, 'gauges.obs'), 'utf8'))).toEqual([{ x: 1, y: 2 }, { x: 3, y: 4 }]);
+  });
+
+  it('write_boundaries and write_forcing round-trip', async () => {
+    const h = buildWriteHandlers(root, { allowWrite: true });
+    parse(await h.triton_write_boundaries({ path: 'bc.extbc', segments: [{ bcType: 3, x1: 0, y1: 0, x2: 1, y2: 1, bc: 0.5 }], confirm: true }));
+    expect(parseBoundaries(fs.readFileSync(join(root, 'bc.extbc'), 'utf8'))).toEqual([{ bcType: 3, x1: 0, y1: 0, x2: 1, y2: 1, bc: 0.5 }]);
+
+    parse(await h.triton_write_forcing({ path: 'flow.hyg', times: [0, 1, 2], columns: [[10, 20, 5]], confirm: true }));
+    const f = parseForcingSeries(fs.readFileSync(join(root, 'flow.hyg'), 'utf8'));
+    expect(f.times).toEqual([0, 1, 2]);
+    expect(f.columns).toEqual([[10, 20, 5]]);
+  });
+});
