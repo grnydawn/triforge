@@ -6,20 +6,36 @@
   "publisher": "grnydawn",
   "license": "MIT",
   "icon": "media/triforge.svg",
-  "repository": { "type": "git", "url": "https://github.com/grnydawn/triforge" },
-  "engines": { "vscode": "^1.95.0" },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/grnydawn/triforge"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
-        { "id": "triforge", "title": "Triforge", "icon": "media/triforge.svg" }
+        {
+          "id": "triforge",
+          "title": "Triforge",
+          "icon": "media/triforge.svg"
+        }
       ]
     },
     "views": {
       "triforge": [
-        { "id": "triforge.status", "name": "Project" }
+        {
+          "id": "triforge.status",
+          "name": "Project"
+        }
       ]
     },
     "viewsWelcome": [
@@ -40,18 +56,56 @@
       }
     ],
     "commands": [
-      { "command": "triforge.openProjectFolder", "title": "Open Project Folder…", "category": "Triforge" },
-      { "command": "triforge.createProject", "title": "Create Project Here", "category": "Triforge" },
-      { "command": "triforge.importLegacyProject", "title": "Import Legacy Project", "category": "Triforge" },
-      { "command": "triforge.openConfig", "title": "Open Manifest", "category": "Triforge", "icon": "$(json)" },
-      { "command": "triforge.revealInExplorer", "title": "Reveal Project in Explorer", "category": "Triforge", "icon": "$(folder-opened)" },
-      { "command": "triforge.generateAiInstructions", "title": "Generate/Refresh AI Instructions", "category": "Triforge" },
-      { "command": "triforge.openKnowledgeBase", "title": "Open Triton Knowledge Base", "category": "Triforge" }
+      {
+        "command": "triforge.openProjectFolder",
+        "title": "Open Project Folder…",
+        "category": "Triforge"
+      },
+      {
+        "command": "triforge.createProject",
+        "title": "Create Project Here",
+        "category": "Triforge"
+      },
+      {
+        "command": "triforge.importLegacyProject",
+        "title": "Import Legacy Project",
+        "category": "Triforge"
+      },
+      {
+        "command": "triforge.openConfig",
+        "title": "Open Manifest",
+        "category": "Triforge",
+        "icon": "$(json)"
+      },
+      {
+        "command": "triforge.revealInExplorer",
+        "title": "Reveal Project in Explorer",
+        "category": "Triforge",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "triforge.generateAiInstructions",
+        "title": "Generate/Refresh AI Instructions",
+        "category": "Triforge"
+      },
+      {
+        "command": "triforge.openKnowledgeBase",
+        "title": "Open Triton Knowledge Base",
+        "category": "Triforge"
+      }
     ],
     "menus": {
       "view/title": [
-        { "command": "triforge.openConfig", "when": "view == triforge.status && triforge:active", "group": "navigation" },
-        { "command": "triforge.revealInExplorer", "when": "view == triforge.status && triforge:active", "group": "navigation" }
+        {
+          "command": "triforge.openConfig",
+          "when": "view == triforge.status && triforge:active",
+          "group": "navigation"
+        },
+        {
+          "command": "triforge.revealInExplorer",
+          "when": "view == triforge.status && triforge:active",
+          "group": "navigation"
+        }
       ]
     },
     "configuration": {
@@ -59,8 +113,21 @@
       "properties": {
         "triforge.ai.instructionTargets": {
           "type": "array",
-          "items": { "type": "string", "enum": ["agents", "claude", "copilot", "gemini", "cursor"] },
-          "default": ["agents", "claude", "copilot"],
+          "items": {
+            "type": "string",
+            "enum": [
+              "agents",
+              "claude",
+              "copilot",
+              "gemini",
+              "cursor"
+            ]
+          },
+          "default": [
+            "agents",
+            "claude",
+            "copilot"
+          ],
           "markdownDescription": "Which AI-assistant instruction files Triforge generates and maintains. `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` by default; `GEMINI.md` and `.cursor/rules/triton.mdc` are opt-in."
         },
         "triforge.ai.autoRegenerate": {
@@ -78,10 +145,22 @@
         "description": "Ask about Triton config variables, file types, and your project",
         "isSticky": true,
         "commands": [
-          { "name": "config",   "description": "Explain a Triton config variable" },
-          { "name": "files",    "description": "List or explain Triton file types" },
-          { "name": "project",  "description": "Summarize the open Triton project" },
-          { "name": "defaults", "description": "Show template defaults and known conflicts" }
+          {
+            "name": "config",
+            "description": "Explain a Triton config variable"
+          },
+          {
+            "name": "files",
+            "description": "List or explain Triton file types"
+          },
+          {
+            "name": "project",
+            "description": "Summarize the open Triton project"
+          },
+          {
+            "name": "defaults",
+            "description": "Show template defaults and known conflicts"
+          }
         ]
       }
     ]
@@ -109,5 +188,9 @@
     "eslint": "^8.57.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
   }
 }
