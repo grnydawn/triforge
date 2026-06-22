@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript (strict), Node `zlib` builtin (DI'd into the PNG encoder), `@modelcontextprotocol/sdk` (already a dependency), `zod` (already a dependency), vitest. No new runtime dependency; `engines.vscode` stays `^1.95.0`.
 
-**Spec:** `docs/superpowers/specs/2026-06-21-triforge-m2c-2-visualize-design.md` (note: committed as `2026-06-21-...`; this is the VISUALIZE slice spec).
+**Spec:** `docs/superpowers/specs/2026-06-22-triforge-m2c-2-visualize-design.md` (the VISUALIZE slice spec).
 
 **Note on provenance:** Every core algorithm below was prototyped and verified in real Node before this plan was written (PNG round-trips through `zlib.inflateSync`; the GIF LZW round-trips through an independent decoder including a forced mid-stream dictionary Clear; colormap/normalize/hillshade/downsample/plot checked numerically). The reconciled split module was type-checked under both repo tsconfigs (`npm run check` → 0) and run end-to-end. Verified reference copies also live at `~/triforge-viz-build/triton-viz/` for convenience, but this plan is self-contained.
 
