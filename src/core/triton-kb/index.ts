@@ -3,3 +3,4 @@ export * from './data';
 export * from './queries';
 export * from './markers';
 export * from './render';
+export * from './chat';
