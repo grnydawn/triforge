@@ -295,7 +295,7 @@ The knowledge base currently documents **38 configuration variables** (across 9 
 
 ### 3.9 The MCP server
 
-Run `node bin/triforge-mcp.js [projectDir]` (see §1.4 for client config). The server is **path-confined**: every file access is resolved within the project root, and any path that escapes it (via `..` or a symlink) is refused. It exposes **30 tools** — 29 read/analyze/visualize tools plus the write tools. **Writes are off by default**: the 7 write tools are advertised but refuse to run unless the server is started with `--allow-write` (or `TRITON_ALLOW_WRITE=1`). When enabled, each write **dry-runs by default** (returns a change preview, touches nothing) and commits only when called with `confirm: true`; commits are atomic and back up any overwritten file to `<name>.bak`.
+Run `node bin/triforge-mcp.js [projectDir]` (see §1.4 for client config). The server is **path-confined**: every file access is resolved within the project root, and any path that escapes it (via `..` or a symlink) is refused. It exposes **31 tools** — read/analyze/visualize/write tools, including GeoTIFF/VRT reading. GeoTIFF mosaics are read with **zero external dependencies** (a hand-rolled decoder for TRITON's uncompressed Float32 strip tiles); pass a `.vrt` (the strip tiles are stitched) or a `.tif` to any grid/render tool, and use `triton_geotiff_info` for georeferencing. **Writes are off by default**: the 7 write tools are advertised but refuse to run unless the server is started with `--allow-write` (or `TRITON_ALLOW_WRITE=1`). When enabled, each write **dry-runs by default** (returns a change preview, touches nothing) and commits only when called with `confirm: true`; commits are atomic and back up any overwritten file to `<name>.bak`.
 
 A core discipline (the "summaries-first" rule): tools return **metadata + statistics by default** and only return raw cell values or large rasters when you explicitly ask. Concretely:
 
@@ -334,6 +334,8 @@ A core discipline (the "summaries-first" rule): tools return **metadata + statis
 | `triton_forcing_summary` | Peak / time-of-peak / total / mean per source or zone. | `path` *(required)* |
 | `triton_series_summary` | Per-point max and time-of-max of an output series. | `path` *(required)* |
 | `triton_max_depth` | Cellwise max across a variable's output frames (default `H`); aggregate stats, optional single frame/window. | `variable?`, `frame?`, `paths?`, `window?{row,col,height,width}` |
+
+- `triton_geotiff_info {path}` — inspect a GeoTIFF/VRT: dimensions, geotransform, EPSG, native-CRS extent, lon/lat bounding box (via a closed-form UTM inverse), and the composing tiles for a `.vrt`. The existing `triton_grid_extent`/`grid_stats`/`read_grid` and the render tools also accept `.vrt`/`.tif` paths (results carry `crs`); `triton_max_depth`/`triton_animate` accept `format:"gtiff"` to operate over GeoTIFF frames.
 
 #### Group D — Visualize
 

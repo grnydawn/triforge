@@ -2797,3 +2797,14 @@ Launch with the write gate: `node bin/triforge-mcp.js <project> --allow-write` (
 - **M2C-WRITE-04** `triton_write_forcing` building a triangular `.hyg` flood wave → re-parses via `triton_read_forcing`; a desynced `num_sources` surfaces a non-blocking W7 warning.
 - **M2C-WRITE-05** `triton_save_image source='dem' out='dem.png'` on `paraboloid.dem` → a PNG file on disk identical to the inline `triton_render_dem` bytes.
 - **M2C-WRITE-06** Request a write to a path outside the project root (via `..` and via a symlinked parent) → both refused (no write).
+
+## M2c-4 — GeoTIFF/VRT read (manual)
+
+Use `~/temp` (the Allatoona case has `gtiff/{H,MH,QX,QY}_01.vrt` + strip tiles, EPSG:32616).
+
+- **M2C-GTIFF-01** `triton_geotiff_info` on `gtiff/H_01.vrt` → 591×673, `EPSG:32616`, native extent (719559…737289 E, 3765449…3785639 N), a lon/lat bbox near 84.5°W/34.1°N, and 8 composing tiles.
+- **M2C-GTIFF-02** `triton_grid_stats` on `gtiff/MH_01.vrt` → max-height stats over the stitched 591×673 mosaic; no full-grid dump.
+- **M2C-GTIFF-03** `triton_read_grid` on a single tile `gtiff/H_01_00.tif` → 591×85 metadata + `crs` `EPSG:32616`; a `window` returns raw cells.
+- **M2C-GTIFF-04** `triton_render_grid` on `gtiff/H_01.vrt` (`colormap='depth'`) → an inline PNG heatmap of the stitched mosaic.
+- **M2C-GTIFF-05** `triton_max_depth variable='H' format='gtiff'` → max-depth stats over the GeoTIFF frame(s), matching the `MH` summary.
+- **M2C-GTIFF-06** Hand-edit a copy of a `.vrt` so a `<SourceFilename>` points outside the project → the read is refused (path-confined).
