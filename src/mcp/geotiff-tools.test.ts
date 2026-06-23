@@ -4,6 +4,7 @@ import * as os from 'os';
 import { join } from 'path';
 import { buildTinyGeoTiff, buildTinyVrt } from '../core/triton-files/geotiff.fixture';
 import { buildToolHandlers, loadGrid } from './tools';
+import { buildVizHandlers } from './viz-tools';
 
 const parse = (r: any) => JSON.parse((r.content[0] as { text: string }).text);
 
@@ -64,5 +65,25 @@ describe('GeoTIFF MCP read integration', () => {
     const r = await h.triton_grid_stats({ path: 'output/gtiff/evil.vrt' });
     expect(r.isError).toBe(true);
     expect(parse(r).error).toMatch(/escapes/);
+  });
+});
+
+describe('GeoTIFF frames for max_depth / animate', () => {
+  let root: string;
+  beforeEach(() => { root = freshGtiff(); });
+  afterEach(() => { fs.rmSync(root, { recursive: true, force: true }); });
+
+  it('triton_max_depth format=gtiff aggregates over .vrt frames', async () => {
+    const h = buildToolHandlers(root);
+    const r = parse(await h.triton_max_depth({ variable: 'H', format: 'gtiff' }));
+    expect(r.variable).toBe('H');
+    expect(r.frameCount).toBe(1);
+    expect(r.stats.max).toBe(9);
+  });
+  it('triton_animate format=gtiff renders a GIF over .vrt frames', async () => {
+    const v = buildVizHandlers(root);
+    const r = await v.triton_animate({ variable: 'H', format: 'gtiff' });
+    const img = (r.content as Array<{ type: string; mimeType?: string; data?: string }>).find((c) => c.type === 'image');
+    expect(img?.mimeType).toBe('image/gif');
   });
 });

@@ -76,8 +76,8 @@ export function buildVizHandlers(root: string) {
     triton_render_grid: wrap(renderGridTool),
     triton_render_dem: wrap((a: { path: string; colormap?: string; hillshade?: boolean; maxDim?: number }) =>
       renderGridTool({ path: a.path, kind: 'esri', colormap: a.colormap ?? 'terrain', hillshade: a.hillshade ?? true, maxDim: a.maxDim })),
-    triton_render_max_depth: wrap((a: { variable?: string; frame?: number; paths?: string[]; colormap?: string; maxDim?: number }) => {
-      const { grid, frameCount, variable } = computeMaxDepth(root, { variable: a.variable, frame: a.frame, paths: a.paths });
+    triton_render_max_depth: wrap((a: { variable?: string; frame?: number; paths?: string[]; format?: string; colormap?: string; maxDim?: number }) => {
+      const { grid, frameCount, variable } = computeMaxDepth(root, { variable: a.variable, frame: a.frame, paths: a.paths, format: a.format });
       const range = autoRange(grid);
       const raster = renderGrid(grid, lutOf(a.colormap ?? 'depth'), { range, maxDim: a.maxDim ?? 800 });
       return pngResult(raster, `Max-depth of ${variable} over ${frameCount} frame(s): ${raster.width}x${raster.height} px PNG; colormap ${a.colormap ?? 'depth'}; range [${range.min}, ${range.max}].`);
@@ -99,8 +99,8 @@ export function buildVizHandlers(root: string) {
       const raster = plotSeries(f.times, series, { title: 'Forcing', xLabel: 'Time (hr)', seriesLabels: labels });
       return pngResult(raster, `${raster.width}x${raster.height} px PNG line plot of ${series.length} forcing series over ${f.times.length} timesteps.`);
     }),
-    triton_animate: wrap((a: { variable?: string; paths?: string[]; colormap?: string; fps?: number; maxDim?: number; range?: [number, number] }) => {
-      const { frames, variable } = computeFrames(root, { variable: a.variable, paths: a.paths });
+    triton_animate: wrap((a: { variable?: string; paths?: string[]; format?: string; colormap?: string; fps?: number; maxDim?: number; range?: [number, number] }) => {
+      const { frames, variable } = computeFrames(root, { variable: a.variable, paths: a.paths, format: a.format });
       let used = frames;
       let note = '';
       if (frames.length > MAX_ANIM_FRAMES) {
@@ -133,8 +133,8 @@ export function buildVizHandlers(root: string) {
 export const VIZ_TOOL_SPECS: Array<{ name: keyof ReturnType<typeof buildVizHandlers>; description: string; input: z.ZodRawShape }> = [
   { name: 'triton_render_grid', description: 'Render any grid (ESRI/headerless/binary) as a PNG heatmap; colormap + optional hillshade; NODATA transparent.', input: { path: z.string(), kind: z.string().optional(), ncols: z.number().optional(), nrows: z.number().optional(), nodata: z.number().optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), range: z.tuple([z.number(), z.number()]).optional(), hillshade: z.boolean().optional(), maxDim: z.number().int().min(16).optional() } },
   { name: 'triton_render_dem', description: 'Render a DEM as a relief-shaded terrain heatmap (PNG).', input: { path: z.string(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), hillshade: z.boolean().optional(), maxDim: z.number().int().min(16).optional() } },
-  { name: 'triton_render_max_depth', description: 'Render the cellwise max-depth of a variable over its output frames as a PNG heatmap.', input: { variable: z.string().optional(), frame: z.number().int().optional(), paths: z.array(z.string()).optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), maxDim: z.number().int().min(16).optional() } },
+  { name: 'triton_render_max_depth', description: 'Render the cellwise max-depth of a variable over its output frames as a PNG heatmap.', input: { variable: z.string().optional(), frame: z.number().int().optional(), paths: z.array(z.string()).optional(), format: z.enum(['gtiff']).optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), maxDim: z.number().int().min(16).optional() } },
   { name: 'triton_plot_series', description: 'Plot an output time series (Time(s) vs value per point) as a PNG line chart.', input: { path: z.string(), points: z.array(z.number().int().min(0)).optional(), maxPoints: z.number().int().min(1).optional() } },
   { name: 'triton_plot_forcing', description: 'Plot a forcing series (.hyg/.roff; time in hours) as a PNG line chart.', input: { path: z.string(), columns: z.array(z.number().int().min(0)).optional() } },
-  { name: 'triton_animate', description: 'Animate a variable’s output frames over time as an animated GIF (consistent global colormap range).', input: { variable: z.string().optional(), paths: z.array(z.string()).optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), fps: z.number().min(0.1).optional(), maxDim: z.number().int().min(16).optional(), range: z.tuple([z.number(), z.number()]).optional() } },
+  { name: 'triton_animate', description: 'Animate a variable’s output frames over time as an animated GIF (consistent global colormap range).', input: { variable: z.string().optional(), paths: z.array(z.string()).optional(), format: z.enum(['gtiff']).optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), fps: z.number().min(0.1).optional(), maxDim: z.number().int().min(16).optional(), range: z.tuple([z.number(), z.number()]).optional() } },
 ];

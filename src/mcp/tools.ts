@@ -73,9 +73,16 @@ export function readDepthPart(root: string, file: string, nodata: number): Grid 
  * explicit `paths`), group by frame index, stitch PAR-mode subdomains into the
  * DEM-sized grid (or read a self-describing ESRI .out when there is no DEM).
  */
-export function computeFrames(root: string, a: { variable?: string; frame?: number; paths?: string[] }): { variable: string; frames: Grid[] } {
+export function computeFrames(root: string, a: { variable?: string; frame?: number; paths?: string[]; format?: string }): { variable: string; frames: Grid[] } {
   const variable = a.variable ?? 'H';
   const s = scanProject(root);
+  if (a.format === 'gtiff') {
+    const frames = s.outputs.gtiffFrames
+      .filter((f) => f.variable === variable && (a.frame === undefined || f.frame === a.frame))
+      .map((f) => loadGeoTiffGrid(root, f.file.startsWith(root) ? f.file.slice(root.length + 1) : f.file));
+    if (!frames.length) throw new Error(`no GeoTIFF frames for variable ${variable}`);
+    return { variable, frames };
+  }
   const parts: OutputFrame[] = a.paths
     ? a.paths.map((p, i) => frameOf(p) ?? { variable, frame: -1 - i, subdomain: 0, file: p })
     : s.outputs.asc.filter((f) => f.variable === variable && (a.frame === undefined || f.frame === a.frame));
@@ -105,7 +112,7 @@ export function computeFrames(root: string, a: { variable?: string; frame?: numb
 }
 
 /** Cellwise max over a variable's frames (stitched), with aggregate stats. */
-export function computeMaxDepth(root: string, a: { variable?: string; frame?: number; paths?: string[] }): { variable: string; frameCount: number; grid: Grid; stats: ReturnType<typeof maxDepth>['stats'] } {
+export function computeMaxDepth(root: string, a: { variable?: string; frame?: number; paths?: string[]; format?: string }): { variable: string; frameCount: number; grid: Grid; stats: ReturnType<typeof maxDepth>['stats'] } {
   const { variable, frames } = computeFrames(root, a);
   const { grid, stats } = maxDepth(frames);
   return { variable, frameCount: frames.length, grid, stats };
@@ -255,7 +262,7 @@ export function buildToolHandlers(root: string) {
     }),
     triton_series_summary: wrap((a: { path: string }) => outputSeriesSummary(parseOutputSeries(read(a.path)))),
     triton_read_performance: wrap((a: { path: string }) => parsePerformance(read(a.path))),
-    triton_max_depth: wrap((a: { variable?: string; frame?: number; paths?: string[]; window?: GridWindow }) => {
+    triton_max_depth: wrap((a: { variable?: string; frame?: number; paths?: string[]; format?: string; window?: GridWindow }) => {
       const { variable, frameCount, grid, stats } = computeMaxDepth(root, a);
       const result: { variable: string; frame?: number; frameCount: number; stats: typeof stats; window?: ReturnType<typeof windowCells> } =
         { variable, frameCount, stats };
@@ -333,7 +340,7 @@ export const TOOL_SPECS: Array<{ name: keyof ReturnType<typeof buildToolHandlers
   { name: 'triton_read_series', description: 'Header + per-point summary of an output time series; raw rows only for an explicit window.', input: { path: z.string(), window: z.object({ start: z.number().int().min(0), count: z.number().int().min(1) }).optional() } },
   { name: 'triton_series_summary', description: 'Per-point max and time-of-max of an output time series.', input: { path: z.string() } },
   { name: 'triton_read_performance', description: 'Parse performance.txt into per-rank timing rows.', input: { path: z.string() } },
-  { name: 'triton_max_depth', description: 'Cellwise max across the output frames of a variable (default H); aggregate stats, optional single frame, optional grid window.', input: { variable: z.string().optional(), frame: z.number().int().optional(), paths: z.array(z.string()).optional(), window: z.object({ row: z.number(), col: z.number(), height: z.number(), width: z.number() }).optional() } },
+  { name: 'triton_max_depth', description: 'Cellwise max across the output frames of a variable (default H); aggregate stats, optional single frame, optional grid window. format:"gtiff" reads GeoTIFF (.vrt) frames.', input: { variable: z.string().optional(), frame: z.number().int().optional(), paths: z.array(z.string()).optional(), format: z.enum(['gtiff']).optional(), window: z.object({ row: z.number(), col: z.number(), height: z.number(), width: z.number() }).optional() } },
   { name: 'triton_lookup_config_variable', description: 'Look up a Triton config variable in the knowledge base.', input: { name: z.string() } },
   { name: 'triton_list_file_types', description: 'List the Triton file types from the knowledge base.', input: {} },
   { name: 'triton_list_conflicts', description: 'List the template-vs-UI config conflicts from the knowledge base.', input: {} },
