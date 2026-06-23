@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveCrs } from './crs';
+import { utmToLonLat, epsgToUtm, deriveCrs } from './crs';
 
 describe('deriveCrs', () => {
   it('derives WGS84 northern zones (326xx)', () => {
@@ -32,5 +32,32 @@ describe('deriveCrs', () => {
   it('returns empty for an unknown datum', () => {
     expect(deriveCrs('16N', 'PUMPKIN')).toBe('');
     expect(deriveCrs('16N', '')).toBe('');
+  });
+});
+
+describe('utmToLonLat (closed-form UTM inverse)', () => {
+  it('matches pyproj for the Allatoona EPSG:32616 corners (<1e-6 deg)', () => {
+    const cases: Array<[number, number, number, number]> = [
+      // easting, northing, expected lon, expected lat (from pyproj EPSG:32616->4326)
+      [719559.01581497, 3785639.3800973, -84.61745257865304, 34.1886490969172],
+      [719559.01581497 + 591 * 30, 3785639.3800973, -84.42521969712251, 34.18476344712845],
+      [719559.01581497, 3785639.3800973 - 673 * 30, -84.62254818579468, 34.00671756454328],
+      [719559.01581497 + 591 * 30, 3785639.3800973 - 673 * 30, -84.43072537430702, 34.00285824801291],
+    ];
+    for (const [e, n, lon, lat] of cases) {
+      const r = utmToLonLat(e, n, 32616);
+      expect(Math.abs(r.lon - lon)).toBeLessThan(1e-6);
+      expect(Math.abs(r.lat - lat)).toBeLessThan(1e-6);
+    }
+  });
+  it('rejects a non-UTM EPSG', () => {
+    expect(() => utmToLonLat(0, 0, 4326)).toThrow(/unsupported EPSG/);
+  });
+  it('epsgToUtm inverts deriveCrs', () => {
+    expect(epsgToUtm(32616)).toEqual({ zone: 16, hemisphere: 'N', datum: 'WGS84' });
+    expect(epsgToUtm(32716)).toEqual({ zone: 16, hemisphere: 'S', datum: 'WGS84' });
+    expect(epsgToUtm(26916)).toEqual({ zone: 16, hemisphere: 'N', datum: 'NAD83' });
+    expect(epsgToUtm(4326)).toBeNull();
+    expect(deriveCrs('16N', 'WGS84')).toBe('EPSG:32616'); // sanity: existing helper unchanged
   });
 });
