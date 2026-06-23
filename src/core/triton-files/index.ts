@@ -5,3 +5,4 @@ export * from './tables';
 export * from './analyze';
 export * from './serialize';
 export * from './tiff';
+export * from './vrt';
