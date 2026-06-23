@@ -7,11 +7,12 @@ export interface ProjectScan {
   root: string;
   configs: string[];
   inputs: string[];
-  outputs: { asc: OutputFrame[]; bin: OutputFrame[]; series: string[]; performance: string[]; gtiff: string[] };
+  outputs: { asc: OutputFrame[]; bin: OutputFrame[]; series: string[]; performance: string[]; gtiff: string[]; gtiffFrames: OutputFrame[] };
   demGrid?: { path: string; ncols: number; nrows: number; cellsize?: number; xll?: number; yll?: number; nodata: number };
 }
 
 const FRAME_RE = /^([A-Za-z]+)_(\d+)_(\d+)\.(out|tif)$/;
+const VRT_RE = /^([A-Za-z]+)_(\d+)\.vrt$/; // {VAR}_{FRAME}.vrt (the composed mosaic for a frame)
 const DEM_HEADER_BYTES = 4096;
 
 /** Read only the first `n` bytes of a file (cheap header sniff; never loads a huge DEM whole). */
@@ -58,6 +59,11 @@ export function scanProject(root: string): ProjectScan {
     series: all.filter((p) => p.includes(`${path.sep}series${path.sep}`) && p.endsWith('.txt')),
     performance: all.filter((p) => path.basename(p) === 'performance.txt'),
     gtiff: all.filter((p) => p.endsWith('.vrt') || p.endsWith('.tif')),
+    gtiffFrames: all
+      .filter((p) => p.endsWith('.vrt'))
+      .map((p) => { const m = path.basename(p).match(VRT_RE); return m ? { variable: m[1], frame: Number(m[2]), subdomain: 0, file: p } : undefined; })
+      .filter((x): x is OutputFrame => !!x)
+      .sort((a, b) => a.frame - b.frame),
   };
 
   let demGrid: ProjectScan['demGrid'];

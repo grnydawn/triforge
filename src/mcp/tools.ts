@@ -7,7 +7,9 @@ import {
   parseEsriAsciiGrid, parseHeaderlessMatrix, parseHeaderlessBody, parseBinaryGrid, parseTritonConfig,
   parsePointList, parseBoundaries, parseForcingSeries, parseOutputSeries, parsePerformance,
   gridStats, gridExtent, forcingSummary, outputSeriesSummary, maxDepth, stitchSubdomains, Grid,
+  readFloat32GeoTiff, parseVrt, geoTiffTileToGrid, stitchVrtMosaic,
 } from '../core/triton-files';
+import { utmToLonLat, epsgToUtm } from '../core/crs';
 import {
   lookupConfigVariable, listConfigVariables, listFileTypes, listConflicts,
 } from '../core/triton-kb';
@@ -22,16 +24,33 @@ export function loadGrid(root: string, rel: string, kind: string | undefined, di
   const lower = abs.toLowerCase();
   const k = kind && kind !== 'auto' ? kind
     : lower.endsWith('.dem') ? 'esri'
-      : (lower.endsWith('.bin') ? 'binary' : 'headerless');
+      : lower.endsWith('.bin') ? 'binary'
+        : (lower.endsWith('.vrt') || lower.endsWith('.tif') || lower.endsWith('.tiff')) ? 'geotiff'
+          : 'headerless';
+  if (k === 'geotiff') return loadGeoTiffGrid(root, rel);
   if (k === 'binary') return parseBinaryGrid(fs.readFileSync(abs));
   const text = fs.readFileSync(abs, 'utf8');
   if (k === 'esri') return parseEsriAsciiGrid(text);
-  // headerless: need dims (from args or the project DEM)
   const scan = scanProject(root);
   const ncols = dims.ncols ?? scan.demGrid?.ncols;
   const nrows = dims.nrows ?? scan.demGrid?.nrows;
   if (!ncols || !nrows) throw new Error('headerless grid needs ncols/nrows (none provided and no DEM detected)');
   return parseHeaderlessMatrix(text, ncols, nrows, dims.nodata ?? scan.demGrid?.nodata ?? -9999);
+}
+
+/** Read a GeoTIFF as a Grid: a `.vrt` (stitch its strip tiles, each path-confined) or a single `.tif`. */
+export function loadGeoTiffGrid(root: string, rel: string): Grid {
+  const abs = resolveWithinRoot(root, rel);
+  if (abs.toLowerCase().endsWith('.vrt')) {
+    const vrt = parseVrt(fs.readFileSync(abs, 'utf8'));
+    const vrtDir = path.dirname(rel);
+    const tiles = vrt.sources.map((s) => {
+      const tileRel = s.relativeToVRT ? path.join(vrtDir, s.filename) : s.filename;
+      return readFloat32GeoTiff(fs.readFileSync(resolveWithinRoot(root, tileRel)));
+    });
+    return stitchVrtMosaic(vrt, tiles);
+  }
+  return geoTiffTileToGrid(readFloat32GeoTiff(fs.readFileSync(abs)));
 }
 
 /**
@@ -134,6 +153,33 @@ export function pathVarNames(): Set<string> {
   return new Set(listConfigVariables().filter((v) => v.valueType === 'path').map((v) => v.name.toLowerCase()));
 }
 
+/** Metadata-only GeoTIFF/VRT inspector: dims, geotransform, EPSG, native + lon/lat extent, tiles. */
+function geotiffInfo(root: string, rel: string): Record<string, unknown> {
+  const abs = resolveWithinRoot(root, rel);
+  let width: number, height: number, gt: number[], epsg: number | undefined;
+  let tiles: Array<{ filename: string; srcRect: unknown; dstRect: unknown }> | undefined;
+  if (abs.toLowerCase().endsWith('.vrt')) {
+    const v = parseVrt(fs.readFileSync(abs, 'utf8'));
+    width = v.width; height = v.height; gt = v.geoTransform; epsg = v.epsg;
+    tiles = v.sources.map((s) => ({ filename: s.filename, srcRect: s.srcRect, dstRect: s.dstRect }));
+  } else {
+    const t = readFloat32GeoTiff(fs.readFileSync(abs));
+    width = t.width; height = t.height; gt = t.geoTransform; epsg = t.epsg;
+  }
+  const [originX, pxW, , originY, , pxH] = gt;
+  const xmin = originX, xmax = originX + width * pxW, ymax = originY, ymin = originY + height * pxH;
+  const nativeExtent = { xmin, ymin, xmax, ymax, cellsize: pxW };
+  let lonLatExtent: Record<string, number> | undefined;
+  if (epsg !== undefined && epsgToUtm(epsg)) {
+    const c = [utmToLonLat(xmin, ymax, epsg), utmToLonLat(xmax, ymax, epsg), utmToLonLat(xmin, ymin, epsg), utmToLonLat(xmax, ymin, epsg)];
+    lonLatExtent = {
+      west: Math.min(...c.map((p) => p.lon)), east: Math.max(...c.map((p) => p.lon)),
+      south: Math.min(...c.map((p) => p.lat)), north: Math.max(...c.map((p) => p.lat)),
+    };
+  }
+  return { path: rel, width, height, geoTransform: gt, epsg, crs: epsg ? `EPSG:${epsg}` : undefined, nativeExtent, lonLatExtent, tiles };
+}
+
 /** A map of tool-name -> async handler, bound to a project root. Pure of MCP plumbing for testability. */
 export function buildToolHandlers(root: string) {
   const read = (rel: string) => fs.readFileSync(resolveWithinRoot(root, rel), 'utf8');
@@ -174,13 +220,16 @@ export function buildToolHandlers(root: string) {
         });
       return { entries: cfg.entries, order: cfg.order, referencedFiles };
     }),
-    triton_grid_extent: wrap((a: { path: string; kind?: string; ncols?: number; nrows?: number }) =>
-      gridExtent(loadGrid(root, a.path, a.kind, a))),
+    triton_grid_extent: wrap((a: { path: string; kind?: string; ncols?: number; nrows?: number }) => {
+      const g = loadGrid(root, a.path, a.kind, a);
+      return { ...gridExtent(g), crs: g.crs };
+    }),
     triton_grid_stats: wrap((a: { path: string; kind?: string; ncols?: number; nrows?: number; nodata?: number }) =>
       gridStats(loadGrid(root, a.path, a.kind, a))),
+    triton_geotiff_info: wrap((a: { path: string }) => geotiffInfo(root, a.path)),
     triton_read_grid: wrap((a: { path: string; kind?: string; ncols?: number; nrows?: number; nodata?: number; window?: GridWindow; downsample?: number }) => {
       const g = loadGrid(root, a.path, a.kind, a);
-      const base = { ncols: g.ncols, nrows: g.nrows, cellsize: g.cellsize, xll: g.xll, yll: g.yll, nodata: g.nodata, stats: gridStats(g) };
+      const base = { ncols: g.ncols, nrows: g.nrows, cellsize: g.cellsize, xll: g.xll, yll: g.yll, nodata: g.nodata, crs: g.crs, stats: gridStats(g) };
       // K6: summary only unless the caller asks for raw cells via an explicit window OR a downsample stride.
       if (a.window) return { ...base, window: windowCells(g, a.window) };
       if (a.downsample) return { ...base, downsample: downsampleGrid(g, a.downsample) };
@@ -275,6 +324,7 @@ export const TOOL_SPECS: Array<{ name: keyof ReturnType<typeof buildToolHandlers
   { name: 'triton_read_config', description: 'Parse a Triton run config (.cfg) into key/value entries, plus which referenced files exist.', input: { path: z.string() } },
   { name: 'triton_grid_extent', description: 'Grid dimensions and native-CRS bounding box of a raster.', input: { path: z.string(), kind: z.string().optional(), ncols: z.number().optional(), nrows: z.number().optional() } },
   { name: 'triton_grid_stats', description: 'Min/max/mean/std, NODATA and wet-cell counts of a raster (summary only).', input: { path: z.string(), kind: z.string().optional(), ncols: z.number().optional(), nrows: z.number().optional(), nodata: z.number().optional() } },
+  { name: 'triton_geotiff_info', description: 'Inspect a GeoTIFF/VRT: dimensions, geotransform, EPSG, native-CRS extent, lon/lat bounding box, and (for a .vrt) the composing tiles. Metadata only.', input: { path: z.string() } },
   { name: 'triton_read_grid', description: 'Grid metadata + stats; raw cell values only for an explicit window or downsample stride.', input: { path: z.string(), kind: z.string().optional(), ncols: z.number().optional(), nrows: z.number().optional(), nodata: z.number().optional(), window: z.object({ row: z.number(), col: z.number(), height: z.number(), width: z.number() }).optional(), downsample: z.number().int().min(1).optional() } },
   { name: 'triton_read_points', description: 'Parse a point list (.src/.obs) into X,Y points.', input: { path: z.string() } },
   { name: 'triton_read_boundaries', description: 'Parse external boundary segments (.extbc).', input: { path: z.string() } },
