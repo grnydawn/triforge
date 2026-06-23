@@ -28,8 +28,8 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
     details: 'Total simulation length (default 86400 = 24h).' },
   { name: 'time_increment_fixed', section: 'Simulation Control', valueType: 'enum', allowed: ['0', '1'], defaultValue: '0',
     details: '0 uses an adaptive timestep (governed by courant); 1 uses a fixed timestep (time_step).' },
-  { name: 'time_step', section: 'Simulation Control', valueType: 'float', defaultValue: '1.0', unit: 'seconds',
-    details: 'Fixed timestep used when time_increment_fixed = 1.', note: `${CONFLICT}: reference creation UI defaulted to 0.01` },
+  { name: 'time_step', section: 'Simulation Control', valueType: 'float', defaultValue: '1.0', uiValue: '0.01', unit: 'seconds',
+    details: 'Fixed timestep used when time_increment_fixed = 1.', note: CONFLICT },
 
   // --- Surface Roughness (Manning’s n) (2) --- (section label must match the doc EXACTLY, incl. the ’ U+2019 apostrophe; the parity test enforces this)
   { name: 'const_mann', section: 'Surface Roughness (Manning’s n)', valueType: 'float', defaultValue: '',
@@ -79,9 +79,9 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
     details: 'XY locations for time-series outputs, in projected meters.' },
   { name: 'print_interval', section: 'Output Control', valueType: 'int', defaultValue: '900', unit: 'seconds',
     details: 'Time in seconds between raster outputs.' },
-  { name: 'print_observation', section: 'Output Control', valueType: 'int', defaultValue: '1',
+  { name: 'print_observation', section: 'Output Control', valueType: 'int', defaultValue: '1', uiValue: '900',
     details: 'Switch to write observation outputs.',
-    note: `${CONFLICT}: ambiguous switch-vs-interval; reference UI used 900; ${INFERRED}` },
+    note: `${CONFLICT}: ambiguous switch-vs-interval; ${INFERRED}` },
   { name: 'print_option', section: 'Output Control', valueType: 'enum', allowed: ['h', 'huv'], defaultValue: 'huv',
     details: 'Which raster fields to output. The doc documents h and huv.',
     note: `field combos beyond h/huv ${INFERRED}` },
@@ -89,9 +89,9 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
     details: '1 enables time-series outputs at observation points.' },
 
   // --- Input and Output Formats (5) ---
-  { name: 'input_format', section: 'Input and Output Formats', valueType: 'enum', allowed: ['ASC', 'BIN'], defaultValue: 'BIN',
+  { name: 'input_format', section: 'Input and Output Formats', valueType: 'enum', allowed: ['ASC', 'BIN'], defaultValue: 'BIN', uiValue: 'ASC',
     details: 'Input raster format: ASC or BIN.',
-    note: `${CONFLICT}: the manifest's io.inputFormat governs an actual run; reference UI defaulted to ASC` },
+    note: `${CONFLICT}: the manifest's io.inputFormat governs an actual run` },
   { name: 'outfile_pattern', section: 'Input and Output Formats', valueType: 'string', defaultValue: '%s/%s/%s_%02d_%02d',
     details: 'Naming convention for output files.', note: `printf substitutions ${INFERRED}` },
   { name: 'output_format', section: 'Input and Output Formats', valueType: 'enum', allowed: ['ASC', 'BIN', 'GTIFF'], defaultValue: 'ASC',
@@ -106,18 +106,18 @@ export const CONFIG_VARIABLES: ConfigVariable[] = [
     details: 'CFL number. Keep at or below 0.5.' },
   { name: 'domain_decomposition', section: 'Miscellaneous Parameters', valueType: 'enum', allowed: ['static', 'dynamic'], defaultValue: 'static',
     details: 'Partitioning mode for parallel runs: static or dynamic.', note: `static-vs-dynamic semantics ${INFERRED}` },
-  { name: 'factor_interval_domain_decomposition', section: 'Miscellaneous Parameters', valueType: 'int', defaultValue: '1',
+  { name: 'factor_interval_domain_decomposition', section: 'Miscellaneous Parameters', valueType: 'int', defaultValue: '1', uiValue: '2',
     details: 'Update frequency used when domain decomposition is dynamic.',
-    note: `${CONFLICT}: reference UI used 2; units ${INFERRED}` },
+    note: `${CONFLICT}: units ${INFERRED}` },
   { name: 'gpu_direct_flag', section: 'Miscellaneous Parameters', valueType: 'enum', allowed: ['0', '1'], defaultValue: '0',
     details: 'CUDA-aware MPI toggle. 0 off, 1 on.' },
   { name: 'hextra', section: 'Miscellaneous Parameters', valueType: 'float', defaultValue: '0.001', unit: 'm',
     details: 'Depth tolerance in meters below which velocities are set to zero.' },
   { name: 'it_count', section: 'Miscellaneous Parameters', valueType: 'int', defaultValue: '0',
     details: 'Internal counter, usually left at 0.' },
-  { name: 'open_boundaries', section: 'Miscellaneous Parameters', valueType: 'enum', allowed: ['0', '1'], defaultValue: '1',
+  { name: 'open_boundaries', section: 'Miscellaneous Parameters', valueType: 'enum', allowed: ['0', '1'], defaultValue: '1', uiValue: '0',
     details: 'Global switch to open domain edges; ignored when explicit boundaries are defined.',
-    note: `${CONFLICT}: reference creation UI defaulted to 0` },
+    note: CONFLICT },
 ];
 
 import { TritonFileType } from './types';

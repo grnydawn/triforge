@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CONFIG_VARIABLES } from './data';
+import { listConflicts } from './queries';
 import { SECTION_ORDER } from './types';
 
 const INFERRED = 'inferred / undocumented';
@@ -73,6 +74,17 @@ describe('CONFIG_VARIABLES', () => {
       const v = CONFIG_VARIABLES.find((x) => x.name === name)!;
       expect(v.note ?? '', name).not.toContain('inferred / undocumented');
     }
+  });
+
+  it('records the reference-UI value for the conflicts as a structured uiValue', () => {
+    const byName = Object.fromEntries(CONFIG_VARIABLES.map((v) => [v.name, v]));
+    expect(byName['time_step'].uiValue).toBe('0.01');
+    expect(byName['open_boundaries'].uiValue).toBe('0');
+    expect(byName['input_format'].uiValue).toBe('ASC');
+    expect(byName['factor_interval_domain_decomposition'].uiValue).toBe('2');
+    expect(byName['print_observation'].uiValue).toBe('900');
+    expect(byName['courant'].uiValue).toBeUndefined();
+    for (const v of listConflicts()) expect(v.uiValue, v.name).toBeTruthy();
   });
 });
 

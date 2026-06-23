@@ -11,8 +11,9 @@ function configVarLine(v: (typeof CONFIG_VARIABLES)[number]): string {
   const meta = [v.valueType, v.unit ? `${v.unit}` : '', v.allowed ? `one of ${v.allowed.join('|')}` : '']
     .filter(Boolean).join(', ');
   const def = v.defaultValue === '' ? 'empty' : `\`${v.defaultValue}\``;
+  const ui = v.uiValue !== undefined ? `; reference UI default \`${v.uiValue}\`` : '';
   const note = v.note ? ` _(${v.note})_` : '';
-  return `- **${v.name}** (${meta}; default ${def}) — ${v.details}${note}`;
+  return `- **${v.name}** (${meta}; default ${def}${ui}) — ${v.details}${note}`;
 }
 
 /** The full Triton knowledge-base document body. Static + deterministic. */

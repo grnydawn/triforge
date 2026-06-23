@@ -104,7 +104,7 @@ export function renderDefaultsCommand(): string {
   }
   out.push('## Template-vs-UI conflicts', '');
   for (const v of listConflicts()) {
-    out.push(`- \`${v.name}\` — template default \`${v.defaultValue || '(empty)'}\`. ${v.note}`);
+    out.push(`- \`${v.name}\` — template default \`${v.defaultValue || '(empty)'}\`, reference UI default \`${v.uiValue ?? '(unknown)'}\`. ${v.note}`);
   }
   return out.join('\n');
 }

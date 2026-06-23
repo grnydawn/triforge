@@ -84,6 +84,8 @@ describe('renderDefaultsCommand', () => {
     for (const name of ['time_step', 'print_observation', 'input_format', 'factor_interval_domain_decomposition', 'open_boundaries']) {
       expect(md).toContain(name);
     }
+    expect(md).toContain('reference UI default');
+    expect(md).toContain('0.01'); // time_step's reference-UI value (appears nowhere else in defaults)
   });
 });
 

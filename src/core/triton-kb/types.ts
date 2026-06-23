@@ -7,6 +7,7 @@ export interface ConfigVariable {
   details: string;       // meaning; units; behavior
   valueType: 'int' | 'float' | 'enum' | 'path' | 'string';
   defaultValue: string;  // the template's literal value ('' when blank in the template)
+  uiValue?: string;      // the reference creation UI's default, when it differs from defaultValue (a template-vs-UI conflict)
   allowed?: string[];    // for enums
   unit?: string;         // e.g. 'seconds', 'm', 'm³/s'
   note?: string;         // conflict-resolution note and/or 'inferred / undocumented'
