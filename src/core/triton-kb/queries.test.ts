@@ -86,7 +86,7 @@ describe('listConflicts', () => {
     // they belong to the 'inferred / undocumented' family — not a conflict. This
     // guards against the selection regex becoming too broad and pulling them in.
     const names = listConflicts().map((v) => v.name);
-    for (const inferred of ['checkpoint_id', 'const_mann', 'runoff_filename', 'runoff_map', 'extbc_file']) {
+    for (const inferred of ['checkpoint_id', 'const_mann', 'runoff_map']) {
       expect(lookupConfigVariable(inferred)?.note).toBeTruthy();
       expect(names).not.toContain(inferred);
     }

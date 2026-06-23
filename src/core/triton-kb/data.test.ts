@@ -10,9 +10,8 @@ const INFERRED = 'inferred / undocumented';
 const CONFLICT_VARS = ['input_format', 'open_boundaries', 'factor_interval_domain_decomposition', 'print_observation', 'time_step'];
 // Variables whose semantics are inferred/undocumented (note MUST contain INFERRED).
 const INFERRED_VARS = [
-  'checkpoint_id', 'const_mann', 'runoff_filename', 'runoff_map', 'extbc_file',
-  'observation_loc_file', 'print_observation', 'print_option', 'outfile_pattern',
-  'domain_decomposition', 'factor_interval_domain_decomposition',
+  'checkpoint_id', 'const_mann', 'runoff_map', 'print_observation', 'print_option',
+  'outfile_pattern', 'domain_decomposition', 'factor_interval_domain_decomposition',
 ];
 
 describe('CONFIG_VARIABLES', () => {
@@ -68,6 +67,13 @@ describe('CONFIG_VARIABLES', () => {
     expect(byName['print_observation'].defaultValue).toBe('1');
     expect(byName['time_step'].defaultValue).toBe('1.0');
   });
+
+  it('drops the format-inferred note from the three now-documented formats', () => {
+    for (const name of ['runoff_filename', 'extbc_file', 'observation_loc_file']) {
+      const v = CONFIG_VARIABLES.find((x) => x.name === name)!;
+      expect(v.note ?? '', name).not.toContain('inferred / undocumented');
+    }
+  });
 });
 
 import { FILE_TYPES } from './data';
@@ -91,5 +97,23 @@ describe('FILE_TYPES', () => {
     for (const f of FILE_TYPES) {
       for (const rv of f.relatedVars) expect(names, `${f.id} -> ${rv}`).toContain(rv);
     }
+  });
+
+  it('documents the .obs/.extbc/.roff formats (extensions set, no "undocumented" note)', () => {
+    const byId = Object.fromEntries(FILE_TYPES.map((f) => [f.id, f]));
+    const obs = byId['observation-locations'];
+    expect(obs.extensions).toContain('.obs');
+    expect(obs.note).toBeUndefined();
+    expect(obs.format).toContain('%X-Location,Y-Location');
+
+    const extbc = byId['external-boundary'];
+    expect(extbc.extensions).toContain('.extbc');
+    expect(extbc.note).toBeUndefined();
+    expect(extbc.format).toContain('6 columns');
+
+    const roff = byId['runoff-timeseries'];
+    expect(roff.extensions).toContain('.roff');
+    expect(roff.note).toBeUndefined();
+    expect(roff.format).toContain('mm/hr');
   });
 });
