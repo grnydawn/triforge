@@ -7,6 +7,7 @@ export interface Grid {
   yll?: number;
   nodata: number;
   values: Float64Array; // length ncols*nrows, row-major
+  crs?: string;         // optional EPSG (e.g. "EPSG:32616"); set by the GeoTIFF reader
 }
 
 export interface EsriHeader {
