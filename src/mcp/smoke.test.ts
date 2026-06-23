@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { buildTinyGeoTiff, buildTinyVrt } from '../core/triton-files/geotiff.fixture';
 
 const root = join(process.cwd(), 'resources/triton-examples/mini');
 
@@ -89,5 +90,34 @@ describe('stdio MCP write gate', () => {
       expect(textOf(res)).toMatch(/write-disabled/);
       expect(fs.readFileSync(join(root, 'mini.cfg'), 'utf8')).toContain('sim_duration=25');
     } finally { await client.close(); fs.rmSync(join(root, '..'), { recursive: true, force: true }); }
+  }, 30000);
+});
+
+describe('stdio MCP GeoTIFF', () => {
+  function freshGtiff(): string {
+    const dir = fs.mkdtempSync(join(fs.realpathSync(os.tmpdir()), 'triforge-smoke-gt-'));
+    const g = join(dir, 'output', 'gtiff'); fs.mkdirSync(g, { recursive: true });
+    fs.writeFileSync(join(g, 'H_01_00.tif'), buildTinyGeoTiff(3, 2, [1, 2, 3, 4, 5, 6], 32616, 719559, 90090, 30));
+    fs.writeFileSync(join(g, 'H_01_01.tif'), buildTinyGeoTiff(3, 1, [7, 8, 9], 32616, 719559, 90030, 30));
+    fs.writeFileSync(join(g, 'H_01.vrt'), buildTinyVrt(3, 3, 32616, [719559, 30, 0, 90090, 0, -30], [
+      { filename: 'H_01_00.tif', width: 3, height: 2, dstYOff: 0 },
+      { filename: 'H_01_01.tif', width: 3, height: 1, dstYOff: 2 },
+    ]));
+    return dir;
+  }
+  it('serves geotiff_info and renders a .vrt over stdio', async () => {
+    const root = freshGtiff();
+    const transport = new StdioClientTransport({ command: 'node', args: [join(process.cwd(), 'bin/triforge-mcp.js'), root] });
+    const client = new Client({ name: 'smoke-gt', version: '0.0.0' });
+    await client.connect(transport);
+    try {
+      expect((await client.listTools()).tools.map((t) => t.name)).toContain('triton_geotiff_info');
+      const info = await client.callTool({ name: 'triton_geotiff_info', arguments: { path: 'output/gtiff/H_01.vrt' } });
+      const text = (info.content as { type: string; text: string }[])[0].text;
+      expect(JSON.parse(text)).toMatchObject({ width: 3, height: 3, epsg: 32616 });
+      const img = await client.callTool({ name: 'triton_render_grid', arguments: { path: 'output/gtiff/H_01.vrt' } });
+      const c = (img.content as Array<{ type: string; mimeType?: string }>).find((x) => x.type === 'image');
+      expect(c?.mimeType).toBe('image/png');
+    } finally { await client.close(); fs.rmSync(root, { recursive: true, force: true }); }
   }, 30000);
 });
