@@ -18,4 +18,11 @@ describe('activation', () => {
     assert.ok(!all.includes('triforge.openSettings'), 'no global-settings command should exist');
     assert.ok(!all.includes('triforge.removeProject'), 'no multi-project command should exist');
   });
+
+  it('exposes the MCP provider API at the bumped engine and activates with it wired (M3a)', async () => {
+    assert.strictEqual(typeof vscode.lm.registerMcpServerDefinitionProvider, 'function');
+    const ext = vscode.extensions.getExtension('grnydawn.triforge');
+    const api = (await ext!.activate()) as TriforgeApi; // must not throw with the provider wired
+    assert.ok(api);
+  });
 });

@@ -7,6 +7,7 @@ import { ProjectStatusView } from './vscode/project-view';
 import { registerCommands, OPENED_VIA_TRIFORGE_KEY } from './vscode/commands';
 import { registerAiInstructions } from './vscode/ai-instructions';
 import { registerChatParticipant } from './vscode/chat-participant';
+import { TriforgeMcpProvider } from './vscode/mcp-provider';
 
 export interface TriforgeApi {
   getState(): ProjectStateKind;
@@ -19,6 +20,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<Trifor
   const store = new ConfigStore();
   const controller = new ProjectStateController(store);
   context.subscriptions.push(controller, store);
+
+  const mcpProvider = new TriforgeMcpProvider(context.extensionUri, controller);
+  context.subscriptions.push(
+    mcpProvider,
+    vscode.lm.registerMcpServerDefinitionProvider('triforge.mcp', mcpProvider),
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('triforge.mcp.allowWrite')) mcpProvider.refresh();
+    }),
+  );
 
   const view = new ProjectStatusView(controller);
   context.subscriptions.push(vscode.window.registerTreeDataProvider('triforge.status', view));
