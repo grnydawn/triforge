@@ -14,11 +14,11 @@ async function exists(uri: vscode.Uri): Promise<boolean> {
 }
 
 describe('command registration', () => {
-  it('registers all five triforge commands (E2E-TDN-03)', async () => {
+  it('registers all six triforge commands (E2E-TDN-03)', async () => {
     const ext = vscode.extensions.getExtension('grnydawn.triforge');
     await ext?.activate();
     const all = await vscode.commands.getCommands(true);
-    for (const id of ['triforge.openProjectFolder', 'triforge.createProject', 'triforge.importLegacyProject', 'triforge.openConfig', 'triforge.revealInExplorer']) {
+    for (const id of ['triforge.openProjectFolder', 'triforge.createProject', 'triforge.importLegacyProject', 'triforge.openConfig', 'triforge.revealInExplorer', 'triforge.connectAiTools']) {
       assert.ok(all.includes(id), `${id} should be registered`);
     }
   });

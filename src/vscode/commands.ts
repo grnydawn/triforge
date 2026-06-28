@@ -4,6 +4,9 @@ import { importLegacy } from '../core/importer';
 import { ConfigStore, MANIFEST_FILENAME } from './config-store';
 import { ProjectStateController } from './state';
 import { CreationPanel } from './creation-panel';
+import { buildServerInvocation, buildClaudeDesktopSnippet, claudeDesktopConfigPath } from '../core/mcp-config';
+import { mcpWritesEnabled } from './mcp-provider';
+import { writeAiToolConfigs } from './connect-ai-tools';
 
 export const OPENED_VIA_TRIFORGE_KEY = 'triforge.openedViaAction';
 
@@ -75,6 +78,33 @@ export function registerCommands(
     const folder = controller.targetFolder;
     if (!folder) { vscode.window.showWarningMessage('Triforge: no project folder to reveal.'); return; }
     await vscode.commands.executeCommand('revealInExplorer', folder);
+  });
+
+  reg('triforge.connectAiTools', async () => {
+    const folder = controller.targetFolder;
+    if (!folder || controller.state !== 'ready') {
+      vscode.window.showWarningMessage('Triforge: open a Triforge project first, then connect AI tools.');
+      return;
+    }
+    if (!vscode.workspace.isTrusted) {
+      vscode.window.showInformationMessage('Triforge: workspace is untrusted — grant trust to write AI tool configs.');
+      return;
+    }
+    const binPath = vscode.Uri.joinPath(context.extensionUri, 'bin', 'triforge-mcp.js').fsPath;
+    const writeOn = mcpWritesEnabled();
+    const inv = buildServerInvocation({ nodeCommand: 'node', binPath, projectRoot: folder.fsPath, allowWrite: writeOn });
+    const res = await writeAiToolConfigs(folder, inv);
+    const state = writeOn ? 'write-enabled' : 'read-only';
+    const bak = res.backedUp.length ? ` (backed up ${res.backedUp.length} malformed file(s))` : '';
+    const choice = await vscode.window.showInformationMessage(
+      `Triforge: connected AI tools — wrote ${res.written.join(', ')} (${state})${bak}. ` +
+      `For Claude Desktop, add the server to ${claudeDesktopConfigPath(process.platform)}. ` +
+      `Re-run this after a Triforge update to refresh the bin path.`,
+      'Copy Claude Desktop Snippet',
+    );
+    if (choice === 'Copy Claude Desktop Snippet') {
+      await vscode.env.clipboard.writeText(buildClaudeDesktopSnippet(inv));
+    }
   });
 }
 
