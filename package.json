@@ -11,7 +11,7 @@
     "url": "https://github.com/grnydawn/triforge"
   },
   "engines": {
-    "vscode": "^1.95.0"
+    "vscode": "^1.101.0"
   },
   "categories": [
     "Other"
@@ -41,6 +41,12 @@
         }
       ]
     },
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "triforge.mcp",
+        "label": "Triforge (Triton project)"
+      }
+    ],
     "viewsWelcome": [
       {
         "view": "triforge.status",
@@ -95,6 +101,11 @@
         "command": "triforge.openKnowledgeBase",
         "title": "Open Triton Knowledge Base",
         "category": "Triforge"
+      },
+      {
+        "command": "triforge.connectAiTools",
+        "title": "Connect AI Tools",
+        "category": "Triforge"
       }
     ],
     "menus": {
@@ -137,6 +148,11 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically refresh AI instruction files when a project opens, triforge.json changes, or the Triforge AI settings change."
+        },
+        "triforge.mcp.allowWrite": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Allow the auto-wired Triton MCP server to use the file-**writing** tools. Off by default (read/analyze/visualize only). Takes effect only in a trusted workspace; even when enabled, write tools still require per-call `confirm: true`."
         }
       }
     },
@@ -183,7 +199,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.11.0",
-    "@types/vscode": "^1.95.0",
+    "@types/vscode": "^1.101.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "@vscode/test-cli": "^0.0.10",
