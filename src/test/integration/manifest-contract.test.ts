@@ -6,18 +6,22 @@ describe('package.json contribution contract (GAP-PKG-01 / E2E-TDN-03)', () => {
     const pkg = vscode.extensions.getExtension('grnydawn.triforge')!.packageJSON;
     assert.deepStrictEqual(pkg.activationEvents, ['onStartupFinished']);
     assert.ok(String(pkg.engines.vscode).includes('1.101'));
-    const container = pkg.contributes.viewsContainers.activitybar.find((c: any) => c.id === 'triforge');
-    assert.ok(container && container.title === 'Triforge');
-    const views = pkg.contributes.views.triforge;
-    assert.strictEqual(views.length, 1);
-    assert.strictEqual(views[0].id, 'triforge.status');
+    // M3b — the project view lives in the native Explorer, not a dedicated activity-bar container.
+    assert.ok(!pkg.contributes.viewsContainers, 'no dedicated Triforge activity-bar container (M3b)');
+    assert.ok(!pkg.contributes.views.triforge, 'no dedicated triforge view container (M3b)');
+    const explorerViews = pkg.contributes.views.explorer;
+    const statusView = explorerViews.find((v: any) => v.id === 'triforge.status');
+    assert.ok(statusView, 'triforge.status must be contributed to the Explorer');
+    assert.strictEqual(statusView.when, 'triforge:state != none');
+    assert.strictEqual(statusView.visibility, 'collapsed');
     // No legacy multi-project views.
     assert.ok(!JSON.stringify(pkg.contributes.views).includes('triton-projects'));
     assert.ok(!JSON.stringify(pkg.contributes.views).includes('triton-simulations'));
     const welcomeStates = pkg.contributes.viewsWelcome.map((w: any) => w.when);
-    for (const s of ['none', 'needsImport', 'invalid']) {
+    for (const s of ['needsImport', 'invalid']) {
       assert.ok(welcomeStates.some((w: string) => w.includes(`triforge:state == ${s}`)), `welcome for ${s}`);
     }
+    assert.ok(!welcomeStates.some((w: string) => w.includes('triforge:state == none')), 'none welcome removed (M3b)');
     // @triton chat participant (M2b).
     const participant = pkg.contributes.chatParticipants.find((p: any) => p.id === 'triforge.triton');
     assert.ok(participant, 'chatParticipants must include triforge.triton');

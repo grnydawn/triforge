@@ -24,20 +24,13 @@
     "triforge-mcp": "bin/triforge-mcp.js"
   },
   "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "triforge",
-          "title": "Triforge",
-          "icon": "media/triforge.svg"
-        }
-      ]
-    },
     "views": {
-      "triforge": [
+      "explorer": [
         {
           "id": "triforge.status",
-          "name": "Project"
+          "name": "Triton Project",
+          "when": "triforge:state != none",
+          "visibility": "collapsed"
         }
       ]
     },
@@ -48,11 +41,6 @@
       }
     ],
     "viewsWelcome": [
-      {
-        "view": "triforge.status",
-        "when": "triforge:state == none",
-        "contents": "No Triforge project is open in this folder.\n[Create Project Here](command:triforge.createProject)\n[Open Project Folder…](command:triforge.openProjectFolder)"
-      },
       {
         "view": "triforge.status",
         "when": "triforge:state == needsImport",
