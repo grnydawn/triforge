@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 
 describe('package.json contribution contract (GAP-PKG-01 / E2E-TDN-03)', () => {
-  it('matches the M1 design (container, single view, activation, engine)', () => {
+  it('matches the contribution contract (Explorer view, welcome states, chat participant, MCP)', () => {
     const pkg = vscode.extensions.getExtension('grnydawn.triforge')!.packageJSON;
     assert.deepStrictEqual(pkg.activationEvents, ['onStartupFinished']);
     assert.ok(String(pkg.engines.vscode).includes('1.101'));
