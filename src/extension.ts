@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ProjectStateKind, TriforgeManifest } from './core/types';
 import { samePath } from './core/paths';
+import { openActionRoute } from './core/detector';
 import { ConfigStore } from './vscode/config-store';
 import { ProjectStateController } from './vscode/state';
 import { ProjectStatusView } from './vscode/project-view';
@@ -40,14 +41,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<Trifor
   await controller.start();
 
   // Consume the one-shot "opened via Triforge open-action" flag: if this folder was opened
-  // through triforge.openProjectFolder and has no manifest, auto-show the creation page.
+  // through triforge.openProjectFolder, auto-adopt it — import a legacy config.json, or show
+  // the creation page for an empty folder (a ready/invalid folder takes no auto-action).
   const flagged = context.globalState.get<string>(OPENED_VIA_TRIFORGE_KEY);
   const target = controller.targetFolder;
   if (flagged && target && samePath(flagged, target.fsPath, process.platform)) {
     await context.globalState.update(OPENED_VIA_TRIFORGE_KEY, undefined); // one-shot
-    if (controller.state === 'none' || controller.state === 'needsImport') {
-      await vscode.commands.executeCommand('triforge.createProject');
-    }
+    const route = openActionRoute(controller.state);
+    if (route === 'import') await vscode.commands.executeCommand('triforge.importLegacyProject');
+    else if (route === 'create') await vscode.commands.executeCommand('triforge.createProject');
   }
 
   return {

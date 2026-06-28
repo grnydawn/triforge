@@ -25,3 +25,10 @@ export function resolveTarget(probes: FolderProbe[]): number | null {
   if (legacy >= 0) return legacy;
   return 0;
 }
+
+/** Which auto-action the "opened via Triforge" one-shot should take for a just-opened folder. */
+export function openActionRoute(state: ProjectStateKind): 'import' | 'create' | 'none' {
+  if (state === 'needsImport') return 'import';
+  if (state === 'none') return 'create';
+  return 'none'; // 'ready' (already loaded) or 'invalid' (welcome handles it): no auto-action
+}

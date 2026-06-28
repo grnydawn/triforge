@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classify, resolveTarget, FolderProbe } from './detector';
+import { classify, resolveTarget, openActionRoute, FolderProbe } from './detector';
 
 const probe = (p: Partial<FolderProbe>): FolderProbe => ({ hasManifest: false, legacyLooksLikeProject: false, ...p });
 
@@ -33,5 +33,18 @@ describe('resolveTarget', () => {
   });
   it('binds to the first folder when nothing matches', () => {
     expect(resolveTarget([probe({}), probe({})])).toBe(0);
+  });
+});
+
+describe('openActionRoute', () => {
+  it('imports a legacy project', () => {
+    expect(openActionRoute('needsImport')).toBe('import');
+  });
+  it('creates for an empty folder', () => {
+    expect(openActionRoute('none')).toBe('create');
+  });
+  it('takes no auto-action for a ready or invalid folder', () => {
+    expect(openActionRoute('ready')).toBe('none');
+    expect(openActionRoute('invalid')).toBe('none');
   });
 });
