@@ -94,9 +94,20 @@
         "command": "triforge.connectAiTools",
         "title": "Connect AI Tools",
         "category": "Triforge"
+      },
+      {
+        "command": "triforge.exportAnimationGif",
+        "title": "Export Flood Animation (GIF)…",
+        "category": "Triforge"
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "triforge.exportAnimationGif",
+          "when": "triforge:active"
+        }
+      ],
       "view/title": [
         {
           "command": "triforge.openConfig",

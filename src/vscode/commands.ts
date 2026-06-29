@@ -7,6 +7,7 @@ import { CreationPanel } from './creation-panel';
 import { buildServerInvocation, buildClaudeDesktopSnippet, claudeDesktopConfigPath } from '../core/mcp-config';
 import { mcpWritesEnabled } from './mcp-provider';
 import { writeAiToolConfigs } from './connect-ai-tools';
+import { exportAnimationGif } from './export-animation';
 
 export const OPENED_VIA_TRIFORGE_KEY = 'triforge.openedViaAction';
 
@@ -106,6 +107,8 @@ export function registerCommands(
       await vscode.env.clipboard.writeText(buildClaudeDesktopSnippet(inv));
     }
   });
+
+  reg('triforge.exportAnimationGif', () => exportAnimationGif(controller));
 }
 
 async function fileExists(uri: vscode.Uri): Promise<boolean> {
