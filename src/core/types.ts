@@ -8,7 +8,10 @@ export const CURRENT_SCHEMA_VERSION = 1;
 export interface TriforgeManifest {
   schemaVersion: number;
   project: { name: string; description: string; createdAt: string; modifiedAt: string };
-  spatial: { crs: string; utmZone: string; datum: string };
+  spatial: {
+    crs: string; utmZone: string; datum: string;
+    grid?: { ncols: number; nrows: number; cellsize: number; xll: number; yll: number };
+  };
   io: { inputFormat: InputFormat; outputFormat: OutputFormat };
   paths: { inputDir: string; outputDir: string; buildDir: string };
 }

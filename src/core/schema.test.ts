@@ -69,3 +69,27 @@ describe('splitUnknown', () => {
     expect(u).toEqual({ inputs: { a: 1 }, _importedFrom: 'x' });
   });
 });
+
+describe('applyDefaults spatial.grid', () => {
+  it('preserves a complete grid', () => {
+    const m = applyDefaults({ project: { name: 'P' }, spatial: { grid: { ncols: 10, nrows: 8, cellsize: 30, xll: 700000, yll: 3700000 } } }, fixedClock);
+    expect(m.spatial.grid).toEqual({ ncols: 10, nrows: 8, cellsize: 30, xll: 700000, yll: 3700000 });
+  });
+  it('omits a partial or missing grid', () => {
+    expect(applyDefaults({ project: { name: 'P' } }, fixedClock).spatial.grid).toBeUndefined();
+    const partial = applyDefaults({ project: { name: 'P' }, spatial: { grid: { ncols: 10, nrows: 8 } } }, fixedClock);
+    expect(partial.spatial.grid).toBeUndefined();
+  });
+});
+
+describe('validate spatial.grid', () => {
+  const good = () => applyDefaults({ project: { name: 'P' } }, fixedClock);
+  it('accepts a valid grid and flags non-positive dims / cellsize', () => {
+    const ok = good(); ok.spatial.grid = { ncols: 4, nrows: 3, cellsize: 30, xll: 0, yll: 0 };
+    expect(validate(ok)).toEqual([]);
+    const bad = good(); bad.spatial.grid = { ncols: 0, nrows: 3, cellsize: 0, xll: 0, yll: 0 };
+    const fields = validate(bad).map((e) => e.field);
+    expect(fields).toContain('spatial.grid');
+    expect(fields).toContain('spatial.grid.cellsize');
+  });
+});

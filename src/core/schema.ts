@@ -16,6 +16,12 @@ export function applyDefaults(input: any, now: Clock = systemClock): TriforgeMan
   const io = i.io ?? {};
   const paths = i.paths ?? {};
   const ts = now();
+  const sg = s.grid ?? {};
+  const gridComplete = ['ncols', 'nrows', 'cellsize', 'xll', 'yll']
+    .every((k) => typeof sg[k] === 'number' && Number.isFinite(sg[k]));
+  const grid = gridComplete
+    ? { ncols: sg.ncols, nrows: sg.nrows, cellsize: sg.cellsize, xll: sg.xll, yll: sg.yll }
+    : undefined;
   return {
     schemaVersion: typeof i.schemaVersion === 'number' ? i.schemaVersion : CURRENT_SCHEMA_VERSION,
     project: {
@@ -24,7 +30,7 @@ export function applyDefaults(input: any, now: Clock = systemClock): TriforgeMan
       createdAt: str(p.createdAt, ts),
       modifiedAt: str(p.modifiedAt, ts),
     },
-    spatial: { crs: str(s.crs, ''), utmZone: str(s.utmZone, ''), datum: str(s.datum, '') },
+    spatial: { crs: str(s.crs, ''), utmZone: str(s.utmZone, ''), datum: str(s.datum, ''), ...(grid ? { grid } : {}) },
     io: {
       inputFormat: str(io.inputFormat, 'BIN') as TriforgeManifest['io']['inputFormat'],
       outputFormat: str(io.outputFormat, 'ASC') as TriforgeManifest['io']['outputFormat'],
@@ -63,6 +69,15 @@ export function validate(m: TriforgeManifest): ValidationError[] {
   }
   if (m.spatial.crs && !/^EPSG:\d+$/.test(m.spatial.crs)) {
     errors.push({ field: 'spatial.crs', message: `spatial.crs must look like "EPSG:32616" (got "${m.spatial.crs}").` });
+  }
+  if (m.spatial.grid) {
+    const g = m.spatial.grid;
+    if (!Number.isInteger(g.ncols) || !Number.isInteger(g.nrows) || g.ncols <= 0 || g.nrows <= 0) {
+      errors.push({ field: 'spatial.grid', message: 'spatial.grid ncols/nrows must be positive integers.' });
+    }
+    if (!(g.cellsize > 0)) {
+      errors.push({ field: 'spatial.grid.cellsize', message: 'spatial.grid.cellsize must be > 0.' });
+    }
   }
   return errors;
 }
