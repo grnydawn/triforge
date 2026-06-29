@@ -3,7 +3,7 @@ import * as https from 'https';
 import { ProjectStateController } from './state';
 import { ConfigStore } from './config-store';
 import { parseEsriAsciiGrid, serializeEsriAsciiGrid } from '../core/triton-files';
-import { utmEpsgFor } from '../core/crs';
+import { utmEpsgFor, epsgToUtm } from '../core/crs';
 import {
   OPENTOPO_DATASETS, targetGridFromBbox, lonLatBoundsForGrid, buildGlobalDemUrl, resampleToTargetGrid,
 } from '../core/dem-download';
@@ -83,8 +83,8 @@ export async function downloadDem(context: vscode.ExtensionContext, controller: 
     epsg = Number(m[1]);
   } else {
     epsg = utmEpsgFor((bbox.west + bbox.east) / 2, (bbox.south + bbox.north) / 2);
-    const zone = epsg >= 32700 ? `${epsg - 32700}S` : `${epsg - 32600}N`;
-    deriveCrsFields = { crs: `EPSG:${epsg}`, utmZone: zone, datum: 'WGS84' };
+    const u = epsgToUtm(epsg);
+    deriveCrsFields = { crs: `EPSG:${epsg}`, utmZone: u ? `${u.zone}${u.hemisphere}` : '', datum: u?.datum ?? 'WGS84' };
   }
 
   let spec: GridSpec;
@@ -97,21 +97,6 @@ export async function downloadDem(context: vscode.ExtensionContext, controller: 
   if (spec.ncols * spec.nrows > MAX_CELLS) {
     vscode.window.showErrorMessage(`Triforge: that area at ${cellsize} m is ${spec.ncols}×${spec.nrows} cells (> ${MAX_CELLS}). Use a coarser cell size or a smaller area.`);
     return;
-  }
-
-  // Persist the domain (and derived CRS) into triforge.json.
-  const cur = store.current;
-  if (cur) {
-    const nextManifest = {
-      ...cur.manifest,
-      spatial: {
-        ...cur.manifest.spatial,
-        ...(deriveCrsFields ?? {}),
-        grid: { ncols: spec.ncols, nrows: spec.nrows, cellsize: spec.cellsize, xll: spec.xll, yll: spec.yll },
-      },
-    };
-    await store.writeParsed(folder, { manifest: nextManifest, unknownSections: cur.unknownSections });
-    await controller.refresh();
   }
 
   // API key (SecretStorage).
@@ -159,6 +144,22 @@ export async function downloadDem(context: vscode.ExtensionContext, controller: 
   } catch (e) {
     vscode.window.showErrorMessage(`Triforge: DEM download failed — ${(e as Error).message}`);
     return;
+  }
+
+  // Persist the domain (and derived CRS) only after the DEM is on disk, so the manifest
+  // never describes a grid the file lacks (safe across overwrite-decline / blank-key / download error).
+  const cur = store.current;
+  if (cur) {
+    const nextManifest = {
+      ...cur.manifest,
+      spatial: {
+        ...cur.manifest.spatial,
+        ...(deriveCrsFields ?? {}),
+        grid: { ncols: spec.ncols, nrows: spec.nrows, cellsize: spec.cellsize, xll: spec.xll, yll: spec.yll },
+      },
+    };
+    await store.writeParsed(folder, { manifest: nextManifest, unknownSections: cur.unknownSections });
+    await controller.refresh();
   }
 
   const choice = await vscode.window.showInformationMessage(`Triforge: wrote ${manifest.paths.inputDir}/dem.dem (${summary}).`, 'Open', 'Reveal in Explorer');
