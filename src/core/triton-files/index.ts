@@ -8,3 +8,4 @@ export * from './tiff';
 export * from './vrt';
 export * from './geotiff';
 export * from './generate-config';
+export * from './config-form';
