@@ -14,3 +14,7 @@ resources/triton/**
 esbuild.mcp.js
 tsconfig.mcp.json
 resources/triton-examples/**
+scripts/**
+manual-fixtures/**
+media/triforge.svg
+**/*.map
