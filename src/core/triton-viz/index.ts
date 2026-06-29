@@ -14,3 +14,5 @@ export type { Arrow, VectorField } from './vector';
 export { encodePng } from './png';
 export { encodeAnimatedGif } from './gif';
 export type { AnimatedGifOptions } from './gif';
+export { encodeFramesToGif, indexFrame, animationPalette } from './animate';
+export type { EncodeFramesOptions, EncodeFramesResult } from './animate';

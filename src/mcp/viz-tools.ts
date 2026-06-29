@@ -3,11 +3,11 @@ import * as zlib from 'zlib';
 import { z } from 'zod';
 import { resolveWithinRoot } from './safety';
 import { loadGrid, computeFrames, computeMaxDepth } from './tools';
-import { parseOutputSeries, parseForcingSeries, Grid } from '../core/triton-files';
+import { parseOutputSeries, parseForcingSeries } from '../core/triton-files';
 import {
-  COLORMAPS, COLORMAP_NAMES, autoRange, normalize, downsample, renderGrid, encodePng, encodeAnimatedGif, plotSeries,
+  COLORMAPS, COLORMAP_NAMES, autoRange, renderGrid, encodePng, plotSeries, encodeFramesToGif,
 } from '../core/triton-viz';
-import type { Range, IndexedFrame } from '../core/triton-viz';
+import type { Range } from '../core/triton-viz';
 
 type ImageContent = { type: 'image'; data: string; mimeType: string };
 type TextContent = { type: 'text'; text: string };
@@ -30,31 +30,6 @@ function gifResult(bytes: Uint8Array, caption: string): VizToolResult {
   return { content: [{ type: 'image', data: b64(bytes), mimeType: 'image/gif' }, { type: 'text', text: caption }] };
 }
 const vizErr = (m: string): VizToolResult => ({ content: [{ type: 'text', text: JSON.stringify({ error: m }) }], isError: true });
-
-const MAX_ANIM_FRAMES = 200;
-
-/** Index a grid against the reserved-slot GIF palette: data -> 0..254, NODATA -> transparentIndex (255). */
-function indexFrame(g: Grid, range: Range, transparentIndex: number): IndexedFrame {
-  const { values, nodata, ncols, nrows } = g;
-  const indices = new Uint8Array(ncols * nrows);
-  for (let p = 0; p < values.length; p++) {
-    const v = values[p];
-    indices[p] = v === nodata || !Number.isFinite(v) ? transparentIndex : Math.round(normalize(v, range) * 254);
-  }
-  return { width: ncols, height: nrows, indices };
-}
-
-/** Build a 256-color GIF palette: 255 colormap colors (0..254) + a reserved transparent slot at 255. */
-function animationPalette(lut: Uint8Array): Uint8Array {
-  const palette = new Uint8Array(256 * 3);
-  for (let i = 0; i < 255; i++) {
-    const k = Math.round((i / 254) * 255);
-    palette[i * 3] = lut[k * 3];
-    palette[i * 3 + 1] = lut[k * 3 + 1];
-    palette[i * 3 + 2] = lut[k * 3 + 2];
-  }
-  return palette; // index 255 left [0,0,0] = transparent color
-}
 
 /** A map of viz-tool-name -> async handler, bound to a project root. */
 export function buildVizHandlers(root: string) {
@@ -100,30 +75,14 @@ export function buildVizHandlers(root: string) {
     }),
     triton_animate: wrap((a: { variable?: string; paths?: string[]; format?: string; colormap?: string; fps?: number; maxDim?: number; range?: [number, number] }) => {
       const { frames, variable } = computeFrames(root, { variable: a.variable, paths: a.paths, format: a.format });
-      let used = frames;
-      let note = '';
-      if (frames.length > MAX_ANIM_FRAMES) {
-        const stride = Math.ceil(frames.length / MAX_ANIM_FRAMES);
-        used = frames.filter((_, i) => i % stride === 0);
-        note = ` (downsampled from ${frames.length} frames at stride ${stride})`;
-      }
-      const maxDim = a.maxDim ?? 512;
-      const small = used.map((g) => downsample(g, maxDim));
-      let gmin = Infinity;
-      let gmax = -Infinity;
-      for (const g of small) {
-        const r = autoRange(g);
-        if (r.min < gmin) gmin = r.min;
-        if (r.max > gmax) gmax = r.max;
-      }
-      const range: Range = a.range ? { min: a.range[0], max: a.range[1] } : Number.isFinite(gmin) ? { min: gmin, max: gmax } : { min: 0, max: 0 };
-      const TRANSPARENT = 255;
-      const palette = animationPalette(lutOf(a.colormap ?? 'depth'));
-      const imgs: IndexedFrame[] = small.map((g) => indexFrame(g, range, TRANSPARENT));
       const fps = a.fps ?? 4;
-      const gif = encodeAnimatedGif(imgs, palette, { delayMs: Math.round(1000 / fps), loop: 0, transparentIndex: TRANSPARENT });
-      const d = small[0];
-      return gifResult(gif, `Animated GIF of ${variable}: ${used.length} frame(s)${note}; ${d.ncols}x${d.nrows} px; ${fps} fps; colormap ${a.colormap ?? 'depth'}; range [${range.min}, ${range.max}].`);
+      const { gif, usedFrames, range, width, height, note } = encodeFramesToGif(frames, {
+        lut: lutOf(a.colormap ?? 'depth'),
+        fps,
+        maxDim: a.maxDim ?? 512,
+        range: a.range ? { min: a.range[0], max: a.range[1] } : undefined,
+      });
+      return gifResult(gif, `Animated GIF of ${variable}: ${usedFrames} frame(s)${note}; ${width}x${height} px; ${fps} fps; colormap ${a.colormap ?? 'depth'}; range [${range.min}, ${range.max}].`);
     }),
   };
 }
