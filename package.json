@@ -109,6 +109,11 @@
         "command": "triforge.clearOpenTopographyApiKey",
         "title": "Clear OpenTopography API Key",
         "category": "Triforge"
+      },
+      {
+        "command": "triforge.openSolverConfig",
+        "title": "Open Solver Configuration…",
+        "category": "Triforge"
       }
     ],
     "menus": {
@@ -120,6 +125,17 @@
         {
           "command": "triforge.downloadDem",
           "when": "triforge:active"
+        },
+        {
+          "command": "triforge.openSolverConfig",
+          "when": "triforge:active"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "triforge.openSolverConfig",
+          "when": "resourceExtname == .cfg && triforge:active",
+          "group": "navigation"
         }
       ],
       "view/title": [

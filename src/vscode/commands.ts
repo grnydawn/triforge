@@ -9,6 +9,9 @@ import { mcpWritesEnabled } from './mcp-provider';
 import { writeAiToolConfigs } from './connect-ai-tools';
 import { exportAnimationGif } from './export-animation';
 import { downloadDem, clearOpenTopographyApiKey } from './dem-download';
+import { SolverConfigPanel } from './solver-config-panel';
+import { generateTritonConfig, serializeConfigCanonical } from '../core/triton-files';
+import { pathVarNames } from '../core/triton-kb';
 
 export const OPENED_VIA_TRIFORGE_KEY = 'triforge.openedViaAction';
 
@@ -112,6 +115,52 @@ export function registerCommands(
   reg('triforge.exportAnimationGif', () => exportAnimationGif(controller));
   reg('triforge.downloadDem', () => downloadDem(context, controller, store));
   reg('triforge.clearOpenTopographyApiKey', () => clearOpenTopographyApiKey(context));
+
+  reg('triforge.openSolverConfig', async (resource?: vscode.Uri) => {
+    const folder = controller.targetFolder;
+    if (!folder || controller.state !== 'ready') {
+      vscode.window.showWarningMessage('Triforge: open a ready Triton project first.');
+      return;
+    }
+    // Explorer context menu on a .cfg → open it directly.
+    if (resource instanceof vscode.Uri && resource.fsPath.endsWith('.cfg')) {
+      SolverConfigPanel.show(context, resource);
+      return;
+    }
+    // Palette: pick an existing .cfg, browse, or create a new one from the manifest.
+    const found = await vscode.workspace.findFiles(new vscode.RelativePattern(folder, '**/*.cfg'), '**/{output,build,node_modules}/**');
+    type PickItem = vscode.QuickPickItem & { uri?: vscode.Uri; action?: 'browse' | 'new' };
+    const items: PickItem[] = found.map((u) => ({ label: vscode.workspace.asRelativePath(u), uri: u }));
+    items.push({ label: '$(folder-opened) Browse…', action: 'browse' });
+    items.push({ label: '$(new-file) New config…', action: 'new' });
+    const picked = await vscode.window.showQuickPick(items, { title: 'Solver Configuration — choose a .cfg' });
+    if (!picked) return;
+
+    let cfgUri: vscode.Uri | undefined;
+    if (picked.uri) {
+      cfgUri = picked.uri;
+    } else if (picked.action === 'browse') {
+      const sel = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { 'TRITON config': ['cfg'] }, openLabel: 'Open Config' });
+      cfgUri = sel?.[0];
+    } else {
+      const manifest = controller.manifest;
+      if (!manifest) { vscode.window.showErrorMessage('Triforge: no project manifest loaded.'); return; }
+      const dest = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.joinPath(folder, 'triton_execution.cfg'),
+        filters: { 'TRITON config': ['cfg'] }, saveLabel: 'Create Config',
+      });
+      if (!dest) return;
+      const demUri = vscode.Uri.joinPath(folder, manifest.paths.inputDir, 'dem.dem');
+      let demFilename: string | undefined;
+      try { await vscode.workspace.fs.stat(demUri); demFilename = `${manifest.paths.inputDir}/dem.dem`; } catch { /* no DEM yet */ }
+      const { config } = generateTritonConfig(manifest, demFilename ? { demFilename } : {});
+      const text = serializeConfigCanonical(config, (k) => pathVarNames().has(k.toLowerCase()));
+      await vscode.workspace.fs.writeFile(dest, Buffer.from(text, 'utf8'));
+      cfgUri = dest;
+    }
+    if (!cfgUri) return;
+    SolverConfigPanel.show(context, cfgUri);
+  });
 }
 
 async function fileExists(uri: vscode.Uri): Promise<boolean> {
