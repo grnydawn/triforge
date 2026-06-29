@@ -101,11 +101,12 @@ function makeCmap(name: string, anchors: readonly Anchor[]): Colormap {
   return { name, lut: buildLut(anchors) };
 }
 
+/** Canonical ordered tuple of all supported colormap names. */
+export const COLORMAP_NAMES = ['viridis', 'depth', 'terrain', 'grayscale', 'rainbow', 'magma', 'teal', 'water', 'blues'] as const;
+export type ColormapName = (typeof COLORMAP_NAMES)[number];
+
 /** The nine available colormaps, keyed by name. */
-export const COLORMAPS: Record<
-  'viridis' | 'depth' | 'terrain' | 'grayscale' | 'rainbow' | 'magma' | 'teal' | 'water' | 'blues',
-  Colormap
-> = {
+export const COLORMAPS: Record<ColormapName, Colormap> = {
   viridis: makeCmap('viridis', VIRIDIS_ANCHORS),
   depth: makeCmap('depth', DEPTH_ANCHORS),
   terrain: makeCmap('terrain', TERRAIN_ANCHORS),

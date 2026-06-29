@@ -5,7 +5,7 @@ import { resolveWithinRoot } from './safety';
 import { loadGrid, computeFrames, computeMaxDepth } from './tools';
 import { parseOutputSeries, parseForcingSeries, Grid } from '../core/triton-files';
 import {
-  COLORMAPS, autoRange, normalize, downsample, renderGrid, encodePng, encodeAnimatedGif, plotSeries,
+  COLORMAPS, COLORMAP_NAMES, autoRange, normalize, downsample, renderGrid, encodePng, encodeAnimatedGif, plotSeries,
 } from '../core/triton-viz';
 import type { Range, IndexedFrame } from '../core/triton-viz';
 
@@ -17,7 +17,6 @@ const deflate = (bytes: Uint8Array): Uint8Array => new Uint8Array(zlib.deflateSy
 const b64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64');
 const read = (root: string, rel: string): string => fs.readFileSync(resolveWithinRoot(root, rel), 'utf8');
 
-const COLORMAP_NAMES = ['viridis', 'depth', 'terrain', 'grayscale', 'rainbow', 'magma', 'teal', 'water', 'blues'] as const;
 type CmName = (typeof COLORMAP_NAMES)[number];
 function lutOf(name?: string): Uint8Array {
   const key: CmName = name && (COLORMAP_NAMES as readonly string[]).includes(name) ? (name as CmName) : 'viridis';

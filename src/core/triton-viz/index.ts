@@ -1,6 +1,7 @@
 /** Barrel for the pure triton-viz rendering/encoding layer. */
 export type { Grid, Raster, IndexedFrame, Range, Deflate, Colormap } from './types';
-export { COLORMAPS, sample } from './colormap';
+export { COLORMAPS, COLORMAP_NAMES, sample } from './colormap';
+export type { ColormapName } from './colormap';
 export { autoRange, normalize } from './normalize';
 export { hillshade, blendHillshade } from './hillshade';
 export type { HillshadeOptions } from './hillshade';
