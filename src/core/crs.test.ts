@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { utmToLonLat, epsgToUtm, deriveCrs } from './crs';
+import { utmToLonLat, epsgToUtm, deriveCrs, lonLatToUtm, utmZoneForLon, utmEpsgFor } from './crs';
 
 describe('deriveCrs', () => {
   it('derives WGS84 northern zones (326xx)', () => {
@@ -59,5 +59,41 @@ describe('utmToLonLat (closed-form UTM inverse)', () => {
     expect(epsgToUtm(26916)).toEqual({ zone: 16, hemisphere: 'N', datum: 'NAD83' });
     expect(epsgToUtm(4326)).toBeNull();
     expect(deriveCrs('16N', 'WGS84')).toBe('EPSG:32616'); // sanity: existing helper unchanged
+  });
+});
+
+describe('utmZoneForLon / utmEpsgFor', () => {
+  it('computes the UTM zone from longitude (clamped 1..60)', () => {
+    expect(utmZoneForLon(-180)).toBe(1);
+    expect(utmZoneForLon(0)).toBe(31);
+    expect(utmZoneForLon(-84.6)).toBe(16);
+    expect(utmZoneForLon(180)).toBe(60); // 61 clamps to 60
+  });
+  it('maps lon/lat to a UTM EPSG (hemisphere from lat sign)', () => {
+    expect(utmEpsgFor(-84.6, 34.2)).toBe(32616);          // WGS84 N
+    expect(utmEpsgFor(-84.6, -34.2)).toBe(32716);         // WGS84 S
+    expect(utmEpsgFor(-84.6, 34.2, 'NAD83')).toBe(26916); // NAD83 N
+  });
+});
+
+describe('lonLatToUtm (closed-form UTM forward)', () => {
+  it('matches the published Allatoona corner (EPSG:32616) to <0.5 m', () => {
+    const r = lonLatToUtm(-84.61745257865304, 34.1886490969172, 32616);
+    expect(Math.abs(r.easting - 719559.01581497)).toBeLessThan(0.5);
+    expect(Math.abs(r.northing - 3785639.3800973)).toBeLessThan(0.5);
+  });
+  it('round-trips with utmToLonLat across zones and hemispheres (<1e-6 deg)', () => {
+    const pts: Array<[number, number, number]> = [
+      [-84.5, 34.0, 32616], [-122.4, 37.8, 32610], [2.35, 48.85, 32631], [151.2, -33.87, 32756],
+    ];
+    for (const [lon, lat, epsg] of pts) {
+      const u = lonLatToUtm(lon, lat, epsg);
+      const g = utmToLonLat(u.easting, u.northing, epsg);
+      expect(Math.abs(g.lon - lon)).toBeLessThan(1e-6);
+      expect(Math.abs(g.lat - lat)).toBeLessThan(1e-6);
+    }
+  });
+  it('rejects a non-UTM EPSG', () => {
+    expect(() => lonLatToUtm(0, 0, 4326)).toThrow(/unsupported EPSG/);
   });
 });

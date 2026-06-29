@@ -55,3 +55,49 @@ export function utmToLonLat(easting: number, northing: number, epsg: number): { 
     + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * D ** 5 / 120) / cp;
   return { lon: lon * 180 / Math.PI, lat: lat * 180 / Math.PI };
 }
+
+/** UTM zone number for a longitude (1..60, clamped). */
+export function utmZoneForLon(lon: number): number {
+  const z = Math.floor((lon + 180) / 6) + 1;
+  return z < 1 ? 1 : z > 60 ? 60 : z;
+}
+
+/** UTM EPSG for a lon/lat: zone from lon, hemisphere from lat sign. NAD83 is treated as northern (matches deriveCrs/epsgToUtm). */
+export function utmEpsgFor(lon: number, lat: number, datum: 'WGS84' | 'NAD83' = 'WGS84'): number {
+  const zone = utmZoneForLon(lon);
+  if (datum === 'WGS84') return (lat >= 0 ? 32600 : 32700) + zone;
+  return 26900 + zone;
+}
+
+/**
+ * Forward UTM (Snyder series): geographic lon/lat in degrees → easting/northing
+ * in metres, for the WGS84/NAD83 UTM families. Exact inverse of utmToLonLat
+ * (same ellipsoid constants). Throws on a non-UTM EPSG.
+ */
+export function lonLatToUtm(lon: number, lat: number, epsg: number): { easting: number; northing: number } {
+  const u = epsgToUtm(epsg);
+  if (!u) throw new Error(`lonLatToUtm: unsupported EPSG ${epsg} (only WGS84/NAD83 UTM)`);
+  const a = 6378137.0, f = 1 / 298.257223563, k0 = 0.9996;
+  const e2 = f * (2 - f), ep2 = e2 / (1 - e2);
+  const phi = lat * Math.PI / 180;
+  const lam = lon * Math.PI / 180;
+  const lam0 = (u.zone * 6 - 183) * Math.PI / 180;
+  const sp = Math.sin(phi), cp = Math.cos(phi);
+  const N = a / Math.sqrt(1 - e2 * sp * sp);
+  const T = Math.tan(phi) ** 2;
+  const C = ep2 * cp * cp;
+  const A = cp * (lam - lam0);
+  const M = a * (
+    (1 - e2 / 4 - 3 * e2 ** 2 / 64 - 5 * e2 ** 3 / 256) * phi
+    - (3 * e2 / 8 + 3 * e2 ** 2 / 32 + 45 * e2 ** 3 / 1024) * Math.sin(2 * phi)
+    + (15 * e2 ** 2 / 256 + 45 * e2 ** 3 / 1024) * Math.sin(4 * phi)
+    - (35 * e2 ** 3 / 3072) * Math.sin(6 * phi)
+  );
+  const easting = k0 * N * (A + (1 - T + C) * A ** 3 / 6
+    + (5 - 18 * T + T ** 2 + 72 * C - 58 * ep2) * A ** 5 / 120) + 500000;
+  let northing = k0 * (M + N * Math.tan(phi) * (A ** 2 / 2
+    + (5 - T + 9 * C + 4 * C ** 2) * A ** 4 / 24
+    + (61 - 58 * T + T ** 2 + 600 * C - 330 * ep2) * A ** 6 / 720));
+  if (u.hemisphere === 'S') northing += 10000000;
+  return { easting, northing };
+}
