@@ -41,6 +41,39 @@ const GRAYSCALE_ANCHORS: readonly Anchor[] = [
   [1.0, [255, 255, 255]],
 ];
 
+// Legacy parity (triton-vscode-extension Colors.ts): piecewise-linear, breakpoints on anchors.
+const RAINBOW_ANCHORS: readonly Anchor[] = [
+  [0.0, [0, 0, 255]],
+  [0.25, [0, 255, 255]],
+  [0.5, [0, 255, 0]],
+  [0.75, [255, 255, 0]],
+  [1.0, [255, 0, 0]],
+];
+
+const MAGMA_ANCHORS: readonly Anchor[] = [
+  [0.0, [0, 0, 0]],
+  [0.33, [80, 0, 80]],
+  [0.66, [255, 100, 0]],
+  [1.0, [255, 255, 150]],
+];
+
+const BLUES_ANCHORS: readonly Anchor[] = [
+  [0.0, [247, 251, 255]],
+  [0.5, [107, 174, 214]],
+  [1.0, [8, 48, 107]],
+];
+
+const TEAL_ANCHORS: readonly Anchor[] = [
+  [0.0, [224, 255, 255]],
+  [0.5, [100, 200, 200]],
+  [1.0, [0, 100, 100]],
+];
+
+const WATER_ANCHORS: readonly Anchor[] = [
+  [0.0, [200, 200, 255]],
+  [1.0, [0, 0, 255]],
+];
+
 /** Build a 768-byte LUT by linear interpolation across the given anchors. */
 function buildLut(anchors: readonly Anchor[]): Uint8Array {
   const lut = new Uint8Array(768);
@@ -68,12 +101,20 @@ function makeCmap(name: string, anchors: readonly Anchor[]): Colormap {
   return { name, lut: buildLut(anchors) };
 }
 
-/** The four available colormaps, keyed by name. */
-export const COLORMAPS: Record<'viridis' | 'depth' | 'terrain' | 'grayscale', Colormap> = {
+/** The nine available colormaps, keyed by name. */
+export const COLORMAPS: Record<
+  'viridis' | 'depth' | 'terrain' | 'grayscale' | 'rainbow' | 'magma' | 'teal' | 'water' | 'blues',
+  Colormap
+> = {
   viridis: makeCmap('viridis', VIRIDIS_ANCHORS),
   depth: makeCmap('depth', DEPTH_ANCHORS),
   terrain: makeCmap('terrain', TERRAIN_ANCHORS),
   grayscale: makeCmap('grayscale', GRAYSCALE_ANCHORS),
+  rainbow: makeCmap('rainbow', RAINBOW_ANCHORS),
+  magma: makeCmap('magma', MAGMA_ANCHORS),
+  teal: makeCmap('teal', TEAL_ANCHORS),
+  water: makeCmap('water', WATER_ANCHORS),
+  blues: makeCmap('blues', BLUES_ANCHORS),
 };
 
 /**

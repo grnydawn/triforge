@@ -17,7 +17,7 @@ const deflate = (bytes: Uint8Array): Uint8Array => new Uint8Array(zlib.deflateSy
 const b64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64');
 const read = (root: string, rel: string): string => fs.readFileSync(resolveWithinRoot(root, rel), 'utf8');
 
-const COLORMAP_NAMES = ['viridis', 'depth', 'terrain', 'grayscale'] as const;
+const COLORMAP_NAMES = ['viridis', 'depth', 'terrain', 'grayscale', 'rainbow', 'magma', 'teal', 'water', 'blues'] as const;
 type CmName = (typeof COLORMAP_NAMES)[number];
 function lutOf(name?: string): Uint8Array {
   const key: CmName = name && (COLORMAP_NAMES as readonly string[]).includes(name) ? (name as CmName) : 'viridis';
@@ -131,10 +131,10 @@ export function buildVizHandlers(root: string) {
 
 /** Tool metadata for MCP registration: name, description, zod input shape. */
 export const VIZ_TOOL_SPECS: Array<{ name: keyof ReturnType<typeof buildVizHandlers>; description: string; input: z.ZodRawShape }> = [
-  { name: 'triton_render_grid', description: 'Render any grid (ESRI/headerless/binary) as a PNG heatmap; colormap + optional hillshade; NODATA transparent.', input: { path: z.string(), kind: z.string().optional(), ncols: z.number().optional(), nrows: z.number().optional(), nodata: z.number().optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), range: z.tuple([z.number(), z.number()]).optional(), hillshade: z.boolean().optional(), maxDim: z.number().int().min(16).optional() } },
-  { name: 'triton_render_dem', description: 'Render a DEM as a relief-shaded terrain heatmap (PNG).', input: { path: z.string(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), hillshade: z.boolean().optional(), maxDim: z.number().int().min(16).optional() } },
-  { name: 'triton_render_max_depth', description: 'Render the cellwise max-depth of a variable over its output frames as a PNG heatmap.', input: { variable: z.string().optional(), frame: z.number().int().optional(), paths: z.array(z.string()).optional(), format: z.enum(['gtiff']).optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), maxDim: z.number().int().min(16).optional() } },
+  { name: 'triton_render_grid', description: 'Render any grid (ESRI/headerless/binary) as a PNG heatmap; colormap + optional hillshade; NODATA transparent.', input: { path: z.string(), kind: z.string().optional(), ncols: z.number().optional(), nrows: z.number().optional(), nodata: z.number().optional(), colormap: z.enum(COLORMAP_NAMES).optional(), range: z.tuple([z.number(), z.number()]).optional(), hillshade: z.boolean().optional(), maxDim: z.number().int().min(16).optional() } },
+  { name: 'triton_render_dem', description: 'Render a DEM as a relief-shaded terrain heatmap (PNG).', input: { path: z.string(), colormap: z.enum(COLORMAP_NAMES).optional(), hillshade: z.boolean().optional(), maxDim: z.number().int().min(16).optional() } },
+  { name: 'triton_render_max_depth', description: 'Render the cellwise max-depth of a variable over its output frames as a PNG heatmap.', input: { variable: z.string().optional(), frame: z.number().int().optional(), paths: z.array(z.string()).optional(), format: z.enum(['gtiff']).optional(), colormap: z.enum(COLORMAP_NAMES).optional(), maxDim: z.number().int().min(16).optional() } },
   { name: 'triton_plot_series', description: 'Plot an output time series (Time(s) vs value per point) as a PNG line chart.', input: { path: z.string(), points: z.array(z.number().int().min(0)).optional(), maxPoints: z.number().int().min(1).optional() } },
   { name: 'triton_plot_forcing', description: 'Plot a forcing series (.hyg/.roff; time in hours) as a PNG line chart.', input: { path: z.string(), columns: z.array(z.number().int().min(0)).optional() } },
-  { name: 'triton_animate', description: 'Animate a variable’s output frames over time as an animated GIF (consistent global colormap range).', input: { variable: z.string().optional(), paths: z.array(z.string()).optional(), format: z.enum(['gtiff']).optional(), colormap: z.enum(['viridis', 'depth', 'terrain', 'grayscale']).optional(), fps: z.number().min(0.1).optional(), maxDim: z.number().int().min(16).optional(), range: z.tuple([z.number(), z.number()]).optional() } },
+  { name: 'triton_animate', description: 'Animate a variable’s output frames over time as an animated GIF (consistent global colormap range).', input: { variable: z.string().optional(), paths: z.array(z.string()).optional(), format: z.enum(['gtiff']).optional(), colormap: z.enum(COLORMAP_NAMES).optional(), fps: z.number().min(0.1).optional(), maxDim: z.number().int().min(16).optional(), range: z.tuple([z.number(), z.number()]).optional() } },
 ];
