@@ -58,4 +58,4 @@ package: ## Build a .vsix (publishing; note: pre-publish PNG icon follow-up stil
 	npx --yes @vscode/vsce package
 
 clean: ## Remove build/test artifacts and manual fixtures
-	node -e "for (const p of ['dist','out','.vscode-test','media/creation.js','media/creation.js.map','manual-fixtures']) require('fs').rmSync(p,{recursive:true,force:true})"
+	node -e "for (const p of ['dist','out','.vscode-test','media/creation.js','media/creation.js.map','media/solver-config.js','media/solver-config.js.map','manual-fixtures']) require('fs').rmSync(p,{recursive:true,force:true})"
