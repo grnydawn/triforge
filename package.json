@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "publisher": "grnydawn",
   "license": "MIT",
-  "icon": "media/triforge.svg",
+  "icon": "media/triforge.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/grnydawn/triforge"
