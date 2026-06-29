@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { buildConfigForm } from './config-form';
+import { buildConfigForm, diffConfigEdits } from './config-form';
 import { parseTritonConfig } from './config';
+import { editConfigText } from './serialize';
+import { pathVarNames } from '../triton-kb';
 
 describe('buildConfigForm', () => {
   it('groups KB variables by section in SECTION_ORDER, with present values and KB defaults', () => {
@@ -35,5 +37,33 @@ describe('buildConfigForm', () => {
     const last = model.sections[model.sections.length - 1];
     expect(last.title).toBe('Unknown / custom');
     expect(last.fields.find((f) => f.name === 'my_custom_key')!.value).toBe('42');
+  });
+});
+
+describe('diffConfigEdits', () => {
+  const model = buildConfigForm(parseTritonConfig('time_step=1.0\ncourant=0.5\ndem_filename=input/dem.dem\n'));
+
+  it('sets a changed present key, deletes a cleared present key, omits unchanged', () => {
+    const updates = diffConfigEdits(model, { time_step: '2.0', courant: '', dem_filename: 'input/dem.dem' });
+    expect(updates.time_step).toBe('2.0');          // changed -> set
+    expect(updates.courant).toBe(null);             // cleared -> delete the line
+    expect('dem_filename' in updates).toBe(false);  // unchanged -> omitted
+  });
+
+  it('adds an absent key only when set to a non-default, non-empty value', () => {
+    expect(diffConfigEdits(model, { checkpoint_id: '5' }).checkpoint_id).toBe('5'); // absent + non-default -> add
+    expect('checkpoint_id' in diffConfigEdits(model, { checkpoint_id: '0' })).toBe(false); // equals default -> omit
+    expect('sim_duration' in diffConfigEdits(model, { sim_duration: '' })).toBe(false);    // absent + blank -> omit
+  });
+
+  it('round-trips through editConfigText preserving comments and untouched keys', () => {
+    const original = '# my run\ntime_step=1.0\ncourant=0.5\n';
+    const m = buildConfigForm(parseTritonConfig(original));
+    const updates = diffConfigEdits(m, { courant: '0.4' });
+    const next = editConfigText(original, updates, (k) => pathVarNames().has(k.toLowerCase()));
+    const reparsed = parseTritonConfig(next);
+    expect(reparsed.entries.courant).toBe('0.4');     // changed
+    expect(reparsed.entries.time_step).toBe('1.0');   // untouched
+    expect(next).toContain('# my run');               // comment preserved
   });
 });

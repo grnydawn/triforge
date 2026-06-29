@@ -69,3 +69,25 @@ export function buildConfigForm(cfg: TritonConfig): ConfigFormModel {
 
   return { sections };
 }
+
+/**
+ * Compute the surgical `updates` map for editConfigText from edited field values.
+ * Present key: cleared -> null (delete line); changed -> set; unchanged -> omitted.
+ * Absent key: set to a non-empty, non-default value -> add; otherwise omitted (keep the file lean).
+ * A field missing from `edited` keeps its current model value (no change).
+ */
+export function diffConfigEdits(model: ConfigFormModel, edited: Record<string, string>): Record<string, string | null> {
+  const updates: Record<string, string | null> = {};
+  for (const section of model.sections) {
+    for (const field of section.fields) {
+      const next = Object.prototype.hasOwnProperty.call(edited, field.name) ? edited[field.name] : field.value;
+      if (field.present) {
+        if (next === '') updates[field.name] = null;
+        else if (next !== field.value) updates[field.name] = next;
+      } else if (next !== '' && next !== field.defaultValue) {
+        updates[field.name] = next;
+      }
+    }
+  }
+  return updates;
+}
