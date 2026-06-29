@@ -11,7 +11,7 @@ import {
 } from '../core/triton-files';
 import { utmToLonLat, epsgToUtm } from '../core/crs';
 import {
-  lookupConfigVariable, listConfigVariables, listFileTypes, listConflicts,
+  lookupConfigVariable, listConfigVariables, listFileTypes, listConflicts, pathVarNames,
 } from '../core/triton-kb';
 
 export type ToolResult = { content: { type: 'text'; text: string }[]; isError?: boolean };
@@ -154,11 +154,6 @@ function downsampleGrid(g: Grid, factor: number): { factor: number; ncols: numbe
 
 /** K6 ceiling on raw cells a downsample may return in one tool result. */
 const DOWNSAMPLE_CELL_CAP = 4096;
-
-/** Config-variable names the KB types as file paths (drives referenced-file existence checks). */
-export function pathVarNames(): Set<string> {
-  return new Set(listConfigVariables().filter((v) => v.valueType === 'path').map((v) => v.name.toLowerCase()));
-}
 
 /** Metadata-only GeoTIFF/VRT inspector: dims, geotransform, EPSG, native + lon/lat extent, tiles. */
 function geotiffInfo(root: string, rel: string): Record<string, unknown> {

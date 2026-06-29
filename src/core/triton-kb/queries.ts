@@ -37,6 +37,11 @@ import { ParsedManifest } from '../types';
 import { ProjectContext } from './types';
 import { deriveCrs } from '../crs';
 
+/** Config-variable names the KB types as file paths (drives path-var quoting / referenced-file checks). */
+export function pathVarNames(): Set<string> {
+  return new Set(listConfigVariables().filter((v) => v.valueType === 'path').map((v) => v.name.toLowerCase()));
+}
+
 export function deriveProjectContext(parsed: ParsedManifest): ProjectContext {
   const m = parsed.manifest;
   const derived = deriveCrs(m.spatial.utmZone, m.spatial.datum);

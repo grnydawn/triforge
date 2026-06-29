@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   listConfigVariables, lookupConfigVariable, getConfigVariablesBySection,
-  listFileTypes, lookupFileType, listConflicts,
+  listFileTypes, lookupFileType, listConflicts, pathVarNames,
 } from './queries';
 
 describe('config queries', () => {
@@ -70,6 +70,17 @@ describe('deriveProjectContext', () => {
   it('flags hasImportedLegacy when _importedFrom is present', () => {
     expect(deriveProjectContext(parsed({}, { _importedFrom: 'config.json' })).hasImportedLegacy).toBe(true);
     expect(deriveProjectContext(parsed({}, {})).hasImportedLegacy).toBe(false);
+  });
+});
+
+describe('pathVarNames', () => {
+  it('returns the lowercased path-typed config variable names', () => {
+    const s = pathVarNames();
+    expect(s.has('dem_filename')).toBe(true);
+    expect(s.has('n_infile')).toBe(true);
+    expect(s.has('src_loc_file')).toBe(true);
+    expect(s.has('courant')).toBe(false); // float, not a path
+    expect(s.has('input_format')).toBe(false); // enum, not a path
   });
 });
 

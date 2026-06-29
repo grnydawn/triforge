@@ -3,7 +3,8 @@ import * as path from 'path';
 import { z } from 'zod';
 import { resolveWithinRoot, resolveWritableTarget, atomicWrite, backupRotate } from './safety';
 import { scanProject } from './project';
-import { ok, err, ToolResult, pathVarNames } from './tools';
+import { ok, err, ToolResult } from './tools';
+import { pathVarNames } from '../core/triton-kb';
 import { buildVizHandlers } from './viz-tools';
 import {
   parseTritonConfig, parsePointList, parseBoundaries, parseForcingSeries,
