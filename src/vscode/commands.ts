@@ -8,6 +8,7 @@ import { buildServerInvocation, buildClaudeDesktopSnippet, claudeDesktopConfigPa
 import { mcpWritesEnabled } from './mcp-provider';
 import { writeAiToolConfigs } from './connect-ai-tools';
 import { exportAnimationGif } from './export-animation';
+import { downloadDem, clearOpenTopographyApiKey } from './dem-download';
 
 export const OPENED_VIA_TRIFORGE_KEY = 'triforge.openedViaAction';
 
@@ -109,6 +110,8 @@ export function registerCommands(
   });
 
   reg('triforge.exportAnimationGif', () => exportAnimationGif(controller));
+  reg('triforge.downloadDem', () => downloadDem(context, controller, store));
+  reg('triforge.clearOpenTopographyApiKey', () => clearOpenTopographyApiKey(context));
 }
 
 async function fileExists(uri: vscode.Uri): Promise<boolean> {

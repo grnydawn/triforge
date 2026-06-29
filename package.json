@@ -99,12 +99,26 @@
         "command": "triforge.exportAnimationGif",
         "title": "Export Flood Animation (GIF)…",
         "category": "Triforge"
+      },
+      {
+        "command": "triforge.downloadDem",
+        "title": "Download DEM (OpenTopography)…",
+        "category": "Triforge"
+      },
+      {
+        "command": "triforge.clearOpenTopographyApiKey",
+        "title": "Clear OpenTopography API Key",
+        "category": "Triforge"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "triforge.exportAnimationGif",
+          "when": "triforge:active"
+        },
+        {
+          "command": "triforge.downloadDem",
           "when": "triforge:active"
         }
       ],

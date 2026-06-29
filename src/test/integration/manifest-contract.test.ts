@@ -43,6 +43,10 @@ describe('package.json contribution contract (GAP-PKG-01 / E2E-TDN-03)', () => {
     const palette = pkg.contributes.menus.commandPalette ?? [];
     assert.ok(palette.some((m: any) => m.command === 'triforge.exportAnimationGif' && m.when === 'triforge:active'),
       'exportAnimationGif must be palette-gated on triforge:active');
+    assert.ok(cmds.includes('triforge.downloadDem'), 'triforge.downloadDem must be declared');
+    assert.ok(cmds.includes('triforge.clearOpenTopographyApiKey'), 'triforge.clearOpenTopographyApiKey must be declared');
+    assert.ok(palette.some((m: any) => m.command === 'triforge.downloadDem' && m.when === 'triforge:active'),
+      'downloadDem must be palette-gated on triforge:active');
     const allowWrite = pkg.contributes.configuration.properties['triforge.mcp.allowWrite'];
     assert.ok(allowWrite && allowWrite.type === 'boolean' && allowWrite.default === false,
       'triforge.mcp.allowWrite must be a boolean defaulting to false');
