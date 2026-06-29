@@ -9,6 +9,8 @@ export { downsample, renderGrid } from './raster';
 export type { RenderGridOptions } from './raster';
 export { plotSeries } from './plot';
 export type { PlotOptions } from './plot';
+export { sampleVectorField } from './vector';
+export type { Arrow, VectorField } from './vector';
 export { encodePng } from './png';
 export { encodeAnimatedGif } from './gif';
 export type { AnimatedGifOptions } from './gif';
