@@ -3,6 +3,8 @@ dist/
 out/
 media/creation.js
 media/creation.js.map
+media/solver-config.js
+media/solver-config.js.map
 .vscode-test/
 coverage/
 *.vsix
