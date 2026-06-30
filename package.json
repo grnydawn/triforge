@@ -114,6 +114,11 @@
         "command": "triforge.openSolverConfig",
         "title": "Open Solver Configuration…",
         "category": "Triforge"
+      },
+      {
+        "command": "triforge.setupBuildRun",
+        "title": "Set Up Build & Run…",
+        "category": "Triforge"
       }
     ],
     "menus": {
@@ -128,6 +133,10 @@
         },
         {
           "command": "triforge.openSolverConfig",
+          "when": "triforge:active"
+        },
+        {
+          "command": "triforge.setupBuildRun",
           "when": "triforge:active"
         }
       ],
