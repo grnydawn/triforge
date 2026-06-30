@@ -53,3 +53,55 @@ export function buildCmakeSettings(exec: ExecutionConfig, paths: TriforgeManifes
 export function buildCmakeBuildTask(): VsCodeTask {
   return { label: CMAKE_BUILD_LABEL, type: 'cmake', command: 'build', group: { kind: 'build', isDefault: true } };
 }
+
+/** The runMode-specific run/submit task. `opts.dependsOn` chains the CMake build when provided. */
+export function buildRunTask(
+  exec: ExecutionConfig,
+  paths: TriforgeManifest['paths'],
+  opts: { dependsOn?: string } = {},
+): VsCodeTask {
+  const base = { type: 'shell' as const, options: { cwd: '${workspaceFolder}' }, problemMatcher: [] as string[] };
+  const task: VsCodeTask =
+    exec.runMode === 'slurm'
+      ? { label: 'TRITON: Submit (SLURM)', ...base, command: 'sbatch', args: [BATCH_SCRIPT_FILENAME] }
+      : {
+          label: 'TRITON: Run (local)',
+          ...base,
+          command: 'mpirun',
+          args: ['-n', String(exec.local?.numProcs ?? 1), resolveSolverPath(exec, paths), resolveConfigFile(exec)],
+        };
+  if (opts.dependsOn) task.dependsOn = opts.dependsOn;
+  return task;
+}
+
+/** Sanitize a string into a SLURM job-name (no whitespace/specials); fall back to 'triton'. */
+function jobName(name: string): string {
+  const cleaned = name.replace(/[^A-Za-z0-9_.-]/g, '_');
+  return cleaned || 'triton';
+}
+
+/** The triton_batch.sh content for SLURM submission. */
+export function buildBatchScript(
+  exec: ExecutionConfig,
+  paths: TriforgeManifest['paths'],
+  project: TriforgeManifest['project'],
+): string {
+  const s = exec.slurm ?? {};
+  const lines: string[] = [
+    '#!/bin/bash',
+    `#SBATCH --job-name=${jobName(project.name)}`,
+    '#SBATCH --output=triton.out',
+    '#SBATCH --error=triton.err',
+  ];
+  if (s.partition) lines.push(`#SBATCH --partition=${s.partition}`);
+  if (s.nodes !== undefined) lines.push(`#SBATCH --nodes=${s.nodes}`);
+  if (s.ntasksPerNode !== undefined) lines.push(`#SBATCH --ntasks-per-node=${s.ntasksPerNode}`);
+  if (s.gpusPerNode !== undefined) lines.push(`#SBATCH --gpus-per-node=${s.gpusPerNode}`);
+  if (s.time) lines.push(`#SBATCH --time=${s.time}`);
+  if (s.account) lines.push(`#SBATCH --account=${s.account}`);
+  for (const d of s.extraDirectives ?? []) {
+    lines.push(d.startsWith('#') ? d : `#SBATCH ${d}`);
+  }
+  lines.push('', 'cd "$SLURM_SUBMIT_DIR"', `srun ${resolveSolverPath(exec, paths)} ${resolveConfigFile(exec)}`, '');
+  return lines.join('\n');
+}
