@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   resolveSolverPath, resolveConfigFile, buildCmakeSettings, buildCmakeBuildTask, CMAKE_BUILD_LABEL,
-  buildRunTask, buildBatchScript, BATCH_SCRIPT_FILENAME,
+  buildRunTask, buildBatchScript, BATCH_SCRIPT_FILENAME, buildExecutionArtifacts,
 } from './execution-artifacts';
 
 const paths = { inputDir: 'input', outputDir: 'output', buildDir: 'build' };
@@ -88,5 +88,48 @@ describe('buildBatchScript', () => {
     expect(sh).not.toContain('--account');
     expect(sh).toContain('#SBATCH --constraint=v100'); // prefixed
     expect(sh).toContain('#SBATCH --exclusive');       // verbatim (already '#'-prefixed)
+  });
+});
+
+const manifest = (over: any = {}): any => ({
+  schemaVersion: 2,
+  project: { name: 'P', description: '', createdAt: 'X', modifiedAt: 'X' },
+  spatial: { crs: '', utmZone: '', datum: '' },
+  io: { inputFormat: 'BIN', outputFormat: 'ASC' },
+  paths: { inputDir: 'input', outputDir: 'output', buildDir: 'build' },
+  ...over,
+});
+
+describe('buildExecutionArtifacts', () => {
+  it('local + sourceDir → cmake build task + run task dependsOn + cmake settings, no warnings', () => {
+    const a = buildExecutionArtifacts(manifest({
+      execution: { runMode: 'local', sourceDir: '/src/triton', solverPath: 'build/triton', configFile: 'triton_execution.cfg', local: { numProcs: 4 } },
+    }));
+    expect(a.tasks.map((t: any) => t.label)).toEqual(['CMake: build TRITON', 'TRITON: Run (local)']);
+    expect(a.tasks[1].dependsOn).toBe('CMake: build TRITON');
+    expect(a.settings).toEqual({ 'cmake.sourceDirectory': '/src/triton', 'cmake.buildDirectory': '${workspaceFolder}/build' });
+    expect(a.batchScript).toBeUndefined();
+    expect(a.warnings).toEqual([]);
+  });
+  it('local without sourceDir → run-only + warning + empty settings', () => {
+    const a = buildExecutionArtifacts(manifest({
+      execution: { runMode: 'local', solverPath: 'build/triton', configFile: 'triton_execution.cfg', local: { numProcs: 1 } },
+    }));
+    expect(a.tasks.map((t: any) => t.label)).toEqual(['TRITON: Run (local)']);
+    expect(a.tasks[0].dependsOn).toBeUndefined();
+    expect(a.settings).toEqual({});
+    expect(a.warnings.some((w: string) => w.includes('sourceDir'))).toBe(true);
+  });
+  it('slurm → submit task + batch script', () => {
+    const a = buildExecutionArtifacts(manifest({
+      execution: { runMode: 'slurm', sourceDir: '/src/triton', solverPath: 'build/triton', configFile: 'triton_execution.cfg', slurm: { nodes: 2, ntasksPerNode: 4 } },
+    }));
+    expect(a.tasks.map((t: any) => t.label)).toEqual(['CMake: build TRITON', 'TRITON: Submit (SLURM)']);
+    expect(a.batchScript).toContain('srun build/triton triton_execution.cfg');
+  });
+  it('execution absent → local defaults + a warning', () => {
+    const a = buildExecutionArtifacts(manifest());
+    expect(a.tasks.map((t: any) => t.label)).toEqual(['TRITON: Run (local)']);
+    expect(a.warnings.some((w: string) => w.includes('No execution config'))).toBe(true);
   });
 });

@@ -2,6 +2,7 @@
  *  .vscode/settings.json cmake.* keys, and the triton_batch.sh SLURM script).
  *  No `vscode`, no `fs` — see src/core/purity.test.ts. M4j-5 writes what these return. */
 import { ExecutionConfig, TriforgeManifest } from './types';
+import { defaultExecution } from './execution';
 
 /** tasks.json label for the CMake Tools build task (run tasks dependsOn this). */
 export const CMAKE_BUILD_LABEL = 'CMake: build TRITON';
@@ -104,4 +105,36 @@ export function buildBatchScript(
   }
   lines.push('', 'cd "$SLURM_SUBMIT_DIR"', `srun ${resolveSolverPath(exec, paths)} ${resolveConfigFile(exec)}`, '');
   return lines.join('\n');
+}
+
+/** Project a manifest onto the VS Code build+run artifacts M4j-5 writes. */
+export function buildExecutionArtifacts(manifest: TriforgeManifest): ExecutionArtifacts {
+  const warnings: string[] = [];
+  let exec = manifest.execution;
+  if (!exec) {
+    warnings.push('No execution config; assuming local defaults.');
+    exec = defaultExecution('local');
+  }
+  const paths = manifest.paths;
+
+  if (!exec.solverPath?.trim()) warnings.push(`solverPath unset; defaulting to ${resolveSolverPath(exec, paths)}.`);
+  if (!exec.configFile?.trim()) warnings.push(`configFile unset; defaulting to ${resolveConfigFile(exec)}.`);
+
+  const hasSource = !!exec.sourceDir?.trim();
+  const runTask = buildRunTask(exec, paths, hasSource ? { dependsOn: CMAKE_BUILD_LABEL } : {});
+  const tasks = hasSource ? [buildCmakeBuildTask(), runTask] : [runTask];
+  if (!hasSource) warnings.push('execution.sourceDir unset; CMake build not wired (build TRITON manually or set sourceDir).');
+
+  const settings = buildCmakeSettings(exec, paths);
+
+  let batchScript: string | undefined;
+  if (exec.runMode === 'slurm') {
+    batchScript = buildBatchScript(exec, paths, manifest.project);
+    const s = exec.slurm ?? {};
+    if (s.nodes === undefined || s.ntasksPerNode === undefined) {
+      warnings.push('SLURM nodes/ntasks-per-node unset; srun will use scheduler defaults.');
+    }
+  }
+
+  return { tasks, settings, batchScript, warnings };
 }
