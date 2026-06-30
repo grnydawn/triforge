@@ -48,12 +48,33 @@ describe('serialize', () => {
   });
 
   it('round-trips unknown sections byte-equally', () => {
-    const original = { schemaVersion: 1, project: { name: 'P', description: '', createdAt: 'X', modifiedAt: 'X' }, spatial: { crs: '', utmZone: '', datum: '' }, io: { inputFormat: 'BIN', outputFormat: 'ASC' }, paths: { inputDir: 'input', outputDir: 'output', buildDir: 'build' }, execution: { run_command: 'mpirun', nested: { keep: [1, 2, 3] } } };
+    const original = { schemaVersion: 1, project: { name: 'P', description: '', createdAt: 'X', modifiedAt: 'X' }, spatial: { crs: '', utmZone: '', datum: '' }, io: { inputFormat: 'BIN', outputFormat: 'ASC' }, paths: { inputDir: 'input', outputDir: 'output', buildDir: 'build' }, extras: { run_command: 'mpirun', nested: { keep: [1, 2, 3] } } };
     const r = parse(JSON.stringify(original), clock);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const out = serialize(r.value.manifest, r.value.unknownSections);
-    expect(JSON.parse(out).execution).toEqual(original.execution);
+    expect(JSON.parse(out).extras).toEqual(original.extras);
+  });
+
+  it('round-trips a typed execution block', () => {
+    const original = { schemaVersion: 2, project: { name: 'P', description: '', createdAt: 'X', modifiedAt: 'X' }, spatial: { crs: '', utmZone: '', datum: '' }, io: { inputFormat: 'BIN', outputFormat: 'ASC' }, paths: { inputDir: 'input', outputDir: 'output', buildDir: 'build' }, execution: { runMode: 'slurm', sourceDir: '/src/triton', slurm: { nodes: 2, ntasksPerNode: 4, extraDirectives: ['#SBATCH --x'] } } };
+    const r = parse(JSON.stringify(original), clock);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.manifest.execution).toEqual(original.execution);
+    expect(JSON.parse(serialize(r.value.manifest, r.value.unknownSections)).execution).toEqual(original.execution);
+  });
+
+  it('migrates a legacy top-level execution block to _legacyExecution (no loss)', () => {
+    const original = { schemaVersion: 1, project: { name: 'P' }, execution: { execution_type: 'local', run_command: 'mpirun -n 4', print_interval: 900 } };
+    const r = parse(JSON.stringify(original), clock);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.value.manifest.execution).toBeUndefined();
+    expect(r.value.unknownSections._legacyExecution).toEqual(original.execution);
+    const out = JSON.parse(serialize(r.value.manifest, r.value.unknownSections));
+    expect(out._legacyExecution).toEqual(original.execution);
+    expect(out.execution).toBeUndefined();
   });
 });
 

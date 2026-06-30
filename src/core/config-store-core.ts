@@ -1,5 +1,6 @@
 import { Result, ParsedManifest, TriforgeManifest, UnknownSections, Clock, systemClock } from './types';
 import { applyDefaults, validate, splitUnknown } from './schema';
+import { isLegacyExecution } from './execution';
 
 export function parse(raw: string, now: Clock = systemClock): Result<ParsedManifest> {
   let obj: unknown;
@@ -13,6 +14,9 @@ export function parse(raw: string, now: Clock = systemClock): Result<ParsedManif
   }
   const record = obj as Record<string, unknown>;
   const unknownSections = splitUnknown(record);
+  if (isLegacyExecution(record.execution)) {
+    unknownSections._legacyExecution = record.execution;
+  }
   const manifest = applyDefaults(record, now);
   const errors = validate(manifest);
   if (errors.length) return { ok: false, errors };
@@ -26,6 +30,7 @@ export function serialize(manifest: TriforgeManifest, unknownSections: UnknownSe
     spatial: manifest.spatial,
     io: manifest.io,
     paths: manifest.paths,
+    execution: manifest.execution,
     ...unknownSections,
   };
   return JSON.stringify(ordered, null, 2) + '\n';

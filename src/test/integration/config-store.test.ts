@@ -71,7 +71,7 @@ describe('ConfigStore', () => {
     const saved = await store.save(folder);
     assert.ok(saved.ok);
     const onDisk = JSON.parse(await read(store.manifestUri(folder)));
-    assert.deepStrictEqual(onDisk.execution, { run_command: 'mpirun' });
+    assert.deepStrictEqual(onDisk._legacyExecution, { run_command: 'mpirun' });
     assert.strictEqual(onDisk.project.createdAt, 'C');
     assert.strictEqual(onDisk.project.modifiedAt, '2026-12-25T00:00:00.000Z');
   });
