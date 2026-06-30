@@ -2,8 +2,9 @@ import {
   TriforgeManifest, ValidationError, UnknownSections, Clock, systemClock,
   INPUT_FORMATS, OUTPUT_FORMATS, CURRENT_SCHEMA_VERSION,
 } from './types';
+import { normalizeExecution, validateExecution } from './execution';
 
-export const KNOWN_TOP_KEYS = ['schemaVersion', 'project', 'spatial', 'io', 'paths'];
+export const KNOWN_TOP_KEYS = ['schemaVersion', 'project', 'spatial', 'io', 'paths', 'execution'];
 
 function str(v: unknown, fallback: string): string {
   return typeof v === 'string' ? v : fallback;
@@ -22,6 +23,7 @@ export function applyDefaults(input: any, now: Clock = systemClock): TriforgeMan
   const grid = gridComplete
     ? { ncols: sg.ncols, nrows: sg.nrows, cellsize: sg.cellsize, xll: sg.xll, yll: sg.yll }
     : undefined;
+  const execution = normalizeExecution(i.execution);
   return {
     schemaVersion: typeof i.schemaVersion === 'number' ? i.schemaVersion : CURRENT_SCHEMA_VERSION,
     project: {
@@ -40,6 +42,7 @@ export function applyDefaults(input: any, now: Clock = systemClock): TriforgeMan
       outputDir: str(paths.outputDir, 'output'),
       buildDir: str(paths.buildDir, 'build'),
     },
+    ...(execution ? { execution } : {}),
   };
 }
 
@@ -78,6 +81,9 @@ export function validate(m: TriforgeManifest): ValidationError[] {
     if (!(g.cellsize > 0)) {
       errors.push({ field: 'spatial.grid.cellsize', message: 'spatial.grid.cellsize must be > 0.' });
     }
+  }
+  if (m.execution) {
+    errors.push(...validateExecution(m.execution));
   }
   return errors;
 }

@@ -93,3 +93,23 @@ describe('validate spatial.grid', () => {
     expect(fields).toContain('spatial.grid.cellsize');
   });
 });
+
+describe('applyDefaults execution', () => {
+  it('includes a normalized execution when present', () => {
+    const m = applyDefaults({ project: { name: 'P' }, execution: { runMode: 'slurm', slurm: { nodes: 2, ntasksPerNode: 4 } } }, fixedClock);
+    expect(m.execution).toEqual({ runMode: 'slurm', slurm: { nodes: 2, ntasksPerNode: 4 } });
+  });
+  it('omits execution when absent or legacy-shaped', () => {
+    expect(applyDefaults({ project: { name: 'P' } }, fixedClock).execution).toBeUndefined();
+    expect(applyDefaults({ project: { name: 'P' }, execution: { run_command: 'mpirun' } }, fixedClock).execution).toBeUndefined();
+  });
+});
+
+describe('validate execution', () => {
+  it('accepts a valid execution and flags a bad numProcs', () => {
+    const m = applyDefaults({ project: { name: 'P' }, execution: { runMode: 'local', local: { numProcs: 8 } } }, fixedClock);
+    expect(validate(m)).toEqual([]);
+    (m.execution as any).local.numProcs = 0;
+    expect(validate(m).map((e) => e.field)).toContain('execution.local.numProcs');
+  });
+});
