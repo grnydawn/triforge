@@ -46,7 +46,7 @@ export function importLegacy(parsed: any, now: Clock = systemClock): Result<Pars
   if ('input' in parsed) unknownSections.inputs = parsed.input;
   if ('output' in parsed) unknownSections.outputs = parsed.output;
   if ('compsetup' in parsed) unknownSections.computation = parsed.compsetup;
-  if ('execution' in parsed) unknownSections.execution = parsed.execution;
+  if ('execution' in parsed) unknownSections._legacyExecution = parsed.execution;
 
   return { ok: true, value: { manifest, unknownSections } };
 }

@@ -41,7 +41,7 @@ describe('legacy import writing (E2E-IMP-04 / E2E-IMP-07)', () => {
     await store.writeParsed(folder, (result as any).value);
     const onDisk = JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(store.manifestUri(folder))).toString('utf8'));
     assert.strictEqual(onDisk.project.name, 'Imported');
-    assert.deepStrictEqual(onDisk.execution, { run_command: 'mpirun' });
+    assert.deepStrictEqual(onDisk._legacyExecution, { run_command: 'mpirun' });
     assert.ok(await exists(vscode.Uri.joinPath(folder, 'config.json')));
   });
 });

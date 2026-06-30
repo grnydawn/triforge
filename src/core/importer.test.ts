@@ -47,7 +47,7 @@ describe('importLegacy', () => {
     expect(u.inputs).toEqual(legacy.input);
     expect(u.outputs).toEqual(legacy.output);
     expect(u.computation).toEqual(legacy.compsetup);
-    expect(u.execution).toEqual(legacy.execution);
+    expect(u._legacyExecution).toEqual(legacy.execution);
     expect(typeof u._importedFrom).toBe('string');
   });
 
