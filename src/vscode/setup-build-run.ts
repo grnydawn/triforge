@@ -74,8 +74,9 @@ export async function writeBuildRunSetup(
 
   const warnings = [...artifacts.warnings];
   const cfg = resolveConfigFile(exec);
-  const cfgUri = path.isAbsolute(cfg) ? vscode.Uri.file(cfg) : vscode.Uri.joinPath(folder, cfg);
-  if (!(await uriExists(cfgUri))) {
+  // Only nudge for a workspace-relative config; an absolute path points outside the project
+  // where "generate via Open Solver Configuration…" doesn't apply (design step 7).
+  if (!path.isAbsolute(cfg) && !(await uriExists(vscode.Uri.joinPath(folder, cfg)))) {
     warnings.push(`Config file '${cfg}' not found — generate it via "Open Solver Configuration…".`);
   }
 
