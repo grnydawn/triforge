@@ -30,7 +30,7 @@ describe('importLegacy', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     const m = r.value.manifest;
-    expect(m.schemaVersion).toBe(1);
+    expect(m.schemaVersion).toBe(2);
     expect(m.project.name).toBe('Big Muddy Study');
     expect(m.project.createdAt).toBe(new Date(1700000000000).toISOString());
     expect(m.project.modifiedAt).toBe(new Date(1700000005000).toISOString());

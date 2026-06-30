@@ -6,7 +6,7 @@ const fixedClock = () => '2026-06-21T00:00:00.000Z';
 describe('applyDefaults', () => {
   it('fills every default for a minimal input', () => {
     const m = applyDefaults({ project: { name: 'P' } }, fixedClock);
-    expect(m.schemaVersion).toBe(1);
+    expect(m.schemaVersion).toBe(2);
     expect(m.project).toEqual({ name: 'P', description: '', createdAt: '2026-06-21T00:00:00.000Z', modifiedAt: '2026-06-21T00:00:00.000Z' });
     expect(m.spatial).toEqual({ crs: '', utmZone: '', datum: '' });
     expect(m.io).toEqual({ inputFormat: 'BIN', outputFormat: 'ASC' });

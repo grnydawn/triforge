@@ -3,7 +3,31 @@ export type OutputFormat = 'ASC' | 'BIN' | 'GTIFF';
 
 export const INPUT_FORMATS: readonly string[] = ['ASC', 'BIN'];
 export const OUTPUT_FORMATS: readonly string[] = ['ASC', 'BIN', 'GTIFF'];
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
+
+export const RUN_MODES = ['local', 'slurm'] as const;
+export type RunMode = (typeof RUN_MODES)[number];
+
+export interface LocalConfig { numProcs: number; }            // mpirun -n N
+
+export interface SlurmConfig {
+  partition?: string;
+  nodes?: number;
+  ntasksPerNode?: number;
+  gpusPerNode?: number;
+  time?: string;                                              // walltime, e.g. '01:00:00'
+  account?: string;
+  extraDirectives?: string[];                                 // free-form #SBATCH lines
+}
+
+export interface ExecutionConfig {
+  runMode: RunMode;                                           // default 'local'
+  sourceDir?: string;                                         // TRITON git repo (for CMake Tools); may be absolute
+  solverPath?: string;                                        // built triton binary (unset → M4j-4 derives <buildDir>/triton)
+  configFile?: string;                                        // the run .cfg
+  local?: LocalConfig;
+  slurm?: SlurmConfig;
+}
 
 export interface TriforgeManifest {
   schemaVersion: number;
@@ -14,6 +38,7 @@ export interface TriforgeManifest {
   };
   io: { inputFormat: InputFormat; outputFormat: OutputFormat };
   paths: { inputDir: string; outputDir: string; buildDir: string };
+  execution?: ExecutionConfig;
 }
 
 export type UnknownSections = Record<string, unknown>;
