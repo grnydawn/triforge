@@ -387,6 +387,7 @@ export class DemMapPanel {
   #timeline { flex: 1 1 8rem; min-width: 8rem; }
   #frameLabel, #floodNote, #floodHint { opacity: .8; }
   #selectArea.active { outline: 2px solid var(--vscode-focusBorder, #09f); }
+  #veccanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 450; display: none; }
   #cropbox { position: absolute; border: 1.5px dashed #09f; background: rgba(0,150,255,.08); z-index: 1150; display: none; }
   .crop-handle { position: absolute; width: 10px; height: 10px; background: #09f; border: 1px solid #fff; box-sizing: border-box; }
   .crop-handle.nw { left: -5px; top: -5px; cursor: nwse-resize; }
@@ -418,6 +419,9 @@ export class DemMapPanel {
     <label>Opacity <input type="range" id="waterOpacity" min="0" max="100" value="80"></label>
     <label>fps <select id="fps"></select></label>
     <label id="variableWrap" style="display:none">Variable <select id="variable"></select></label>
+    <label><input type="checkbox" id="vectors"> Velocity arrows</label>
+    <label>Density <select id="vecDensity"></select></label>
+    <label>Scale <input type="range" id="vecScale" min="20" max="300" value="100"></label>
     <button id="selectArea" type="button">Select area</button>
     <button id="exportGif" type="button">Export GIF</button>
     <span id="floodNote"></span>
