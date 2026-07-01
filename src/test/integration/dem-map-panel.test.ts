@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { parseEsriAsciiGrid } from '../../core/triton-files';
-import { buildOverlayMessage, buildFloodFramesMessage } from '../../vscode/dem-map-panel';
+import { buildOverlayMessage, buildFloodFramesMessage, buildVectorFramesMessage } from '../../vscode/dem-map-panel';
 import type { Grid } from '../../core/triton-files';
 
 const DEM = `ncols 4
@@ -89,5 +89,23 @@ describe('DemMapPanel flood frames (M4e)', () => {
     const a = buildFloodFramesMessage(frames, [0, 1], 'EPSG:32616', { colormap: 'depth', maxDim: 64, dryThreshold: 0.001 }, meta);
     const b = buildFloodFramesMessage(frames, [0, 1], 'EPSG:32616', { colormap: 'viridis', maxDim: 64, dryThreshold: 0.001 }, meta);
     assert.notStrictEqual(a.frames[0], b.frames[0]);
+  });
+});
+
+describe('DemMapPanel vector frames (M4g)', () => {
+  const vg = (rows: number[][]): Grid => ({
+    ncols: rows[0].length, nrows: rows.length, cellsize: 100, xll: 500000, yll: 4000000,
+    nodata: -9999, values: Float64Array.from(rows.flat()),
+  });
+
+  it('buildVectorFramesMessage → per-frame arrows + a global maxMagnitude', () => {
+    const qx = [vg([[1, 1], [1, 1]]), vg([[2, 2], [2, 2]])];
+    const qy = [vg([[0, 0], [0, 0]]), vg([[0, 0], [0, 0]])];
+    const msg = buildVectorFramesMessage(qx, qy, 'EPSG:32616', { maxArrows: 2000, scale: 1 });
+    assert.strictEqual(msg.command, 'vectorFrames');
+    assert.strictEqual(msg.frames.length, 2);
+    assert.ok(msg.frames[0].length > 0);
+    assert.ok(msg.frames[0][0].base && msg.frames[0][0].tip);
+    assert.ok(msg.maxMagnitude >= 2); // global max across both frames (frame 2 peaks at 2)
   });
 });

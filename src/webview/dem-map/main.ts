@@ -84,6 +84,15 @@ function initControls(): void {
     vscodeApi.postMessage({ command: 'reloadFlood', variable: (e.target as HTMLSelectElement).value }));
   $('selectArea').addEventListener('click', () => setCropMode(!cropMode));
   $('exportGif').addEventListener('click', () => { void exportGif(); });
+  const vd = $('vecDensity') as HTMLSelectElement;
+  vd.innerHTML = ['low', 'med', 'high'].map((d) => `<option value="${d}"${d === 'med' ? ' selected' : ''}>${d}</option>`).join('');
+  const vecToggle = $('vectors') as HTMLInputElement;
+  const vs = $('vecScale') as HTMLInputElement;
+  const requestVectors = () => vscodeApi.postMessage({ command: 'loadVectors', density: vd.value, scale: Number(vs.value) / 100 });
+  vecToggle.addEventListener('change', () => { vectorsOn = vecToggle.checked; if (vectorsOn) requestVectors(); else drawVectors(); });
+  vd.addEventListener('change', () => { if (vectorsOn) requestVectors(); });
+  vs.addEventListener('change', () => { if (vectorsOn) requestVectors(); });
+  map.on('move zoom zoomend resize', drawVectors);
 }
 
 // ---- Flood animation (M4e) ----
@@ -109,6 +118,7 @@ function showFrame(i: number): void {
   }
   ($('timeline') as HTMLInputElement).value = String(frameIdx);
   $('frameLabel').textContent = `Frame ${floodFrameNumbers[frameIdx] ?? frameIdx} (${frameIdx + 1}/${floodFrames.length})`;
+  if (vectorsOn) drawVectors();
 }
 
 function startPlay(): void {
@@ -323,6 +333,57 @@ async function exportGif(): Promise<void> {
   }
 }
 
+// ---- Velocity quiver layer (M4g) ----
+interface QArrow { base: { lat: number; lng: number }; tip: { lat: number; lng: number }; magnitude: number }
+let vectorFrames: QArrow[][] = [];
+let vectorsOn = false;
+let vecCanvas: HTMLCanvasElement | undefined;
+
+function ensureVecCanvas(): HTMLCanvasElement {
+  if (vecCanvas) return vecCanvas;
+  const c = document.createElement('canvas');
+  c.id = 'veccanvas';
+  mapContainer().appendChild(c);
+  vecCanvas = c;
+  return c;
+}
+
+function drawArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number): void {
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  if (len > 2) {
+    const ang = Math.atan2(dy, dx);
+    const head = Math.min(6, len * 0.4);
+    ctx.lineTo(x1 - head * Math.cos(ang - Math.PI / 6), y1 - head * Math.sin(ang - Math.PI / 6));
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 - head * Math.cos(ang + Math.PI / 6), y1 - head * Math.sin(ang + Math.PI / 6));
+  }
+  ctx.stroke();
+}
+
+function drawVectors(): void {
+  const c = ensureVecCanvas();
+  const cont = mapContainer();
+  if (c.width !== cont.clientWidth || c.height !== cont.clientHeight) { c.width = cont.clientWidth; c.height = cont.clientHeight; }
+  const ctx = c.getContext('2d')!;
+  ctx.clearRect(0, 0, c.width, c.height);
+  if (!vectorsOn || !vectorFrames.length) { c.style.display = 'none'; return; }
+  c.style.display = 'block';
+  const arrows = vectorFrames[Math.min(frameIdx, vectorFrames.length - 1)] || [];
+  const project = arrows.map((a) => ({
+    p0: map.latLngToContainerPoint([a.base.lat, a.base.lng]),
+    p1: map.latLngToContainerPoint([a.tip.lat, a.tip.lng]),
+  }));
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.lineWidth = pass === 0 ? 3 : 1.5;
+    ctx.strokeStyle = pass === 0 ? 'rgba(0,0,0,.55)' : '#fff'; // dark outline, then white arrow
+    for (const s of project) drawArrow(ctx, s.p0.x, s.p0.y, s.p1.x, s.p1.y);
+  }
+}
+
 window.addEventListener('message', (e: MessageEvent) => {
   const msg = e.data;
   if (msg.command === 'renderOverlay') {
@@ -342,6 +403,15 @@ window.addEventListener('message', (e: MessageEvent) => {
     void exportGif();
   } else if (msg.command === 'exportDone') {
     $('floodNote').textContent = msg.message ?? '';
+  } else if (msg.command === 'vectorFrames') {
+    vectorFrames = msg.frames;
+    drawVectors();
+  } else if (msg.command === 'noVectors') {
+    vectorFrames = [];
+    vectorsOn = false;
+    ($('vectors') as HTMLInputElement).checked = false;
+    $('floodHint').textContent = msg.note ?? '';
+    drawVectors();
   }
 });
 

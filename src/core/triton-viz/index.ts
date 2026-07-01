@@ -23,3 +23,5 @@ export type { FloodOverlayOptions } from './flood-overlay';
 export { quantizeFrames } from './quantize';
 export { encodeRgbaFramesToGif } from './rgba-gif';
 export type { RgbaGifOptions } from './rgba-gif';
+export { buildQuiver } from './quiver-overlay';
+export type { QuiverArrow, QuiverOptions, Quiver, LatLng } from './quiver-overlay';
