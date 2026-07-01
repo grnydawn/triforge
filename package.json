@@ -129,6 +129,11 @@
         "command": "triforge.playFloodAnimation",
         "title": "Play Flood Animation on Map",
         "category": "Triforge"
+      },
+      {
+        "command": "triforge.exportMapGif",
+        "title": "Export Map Animation (GIF)…",
+        "category": "Triforge"
       }
     ],
     "menus": {
@@ -155,6 +160,10 @@
         },
         {
           "command": "triforge.playFloodAnimation",
+          "when": "triforge:active"
+        },
+        {
+          "command": "triforge.exportMapGif",
           "when": "triforge:active"
         }
       ],
