@@ -119,6 +119,11 @@
         "command": "triforge.setupBuildRun",
         "title": "Set Up Build & Run…",
         "category": "Triforge"
+      },
+      {
+        "command": "triforge.openMap",
+        "title": "Open Map…",
+        "category": "Triforge"
       }
     ],
     "menus": {
@@ -137,6 +142,10 @@
         },
         {
           "command": "triforge.setupBuildRun",
+          "when": "triforge:active"
+        },
+        {
+          "command": "triforge.openMap",
           "when": "triforge:active"
         }
       ],

@@ -10,6 +10,7 @@ import { writeAiToolConfigs } from './connect-ai-tools';
 import { exportAnimationGif } from './export-animation';
 import { downloadDem, clearOpenTopographyApiKey } from './dem-download';
 import { SolverConfigPanel } from './solver-config-panel';
+import { DemMapPanel } from './dem-map-panel';
 import { setupBuildRun } from './setup-build-run';
 import { generateTritonConfig, serializeConfigCanonical } from '../core/triton-files';
 import { pathVarNames } from '../core/triton-kb';
@@ -117,6 +118,14 @@ export function registerCommands(
   reg('triforge.downloadDem', () => downloadDem(context, controller, store));
   reg('triforge.clearOpenTopographyApiKey', () => clearOpenTopographyApiKey(context));
   reg('triforge.setupBuildRun', () => setupBuildRun(context, controller, store));
+
+  reg('triforge.openMap', () => {
+    if (!controller.targetFolder || controller.state !== 'ready') {
+      vscode.window.showWarningMessage('Triforge: open a ready Triton project first.');
+      return;
+    }
+    DemMapPanel.show(context, controller);
+  });
 
   reg('triforge.openSolverConfig', async (resource?: vscode.Uri) => {
     const folder = controller.targetFolder;
