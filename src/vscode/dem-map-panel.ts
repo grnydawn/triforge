@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as zlib from 'zlib';
 import { parseEsriAsciiGrid, Grid } from '../core/triton-files';
-import { gridLatLngBounds, buildDemOverlay, encodePng, COLORMAP_NAMES, COLORMAPS, floodGlobalRange, renderFloodFrame, capFrames } from '../core/triton-viz';
-import type { LatLngBounds, DemOverlayOptions, ColormapName, FloodOverlayOptions, Raster } from '../core/triton-viz';
+import { gridLatLngBounds, buildDemOverlay, encodePng, COLORMAP_NAMES, COLORMAPS, floodGlobalRange, renderFloodFrame, capFrames, sampleVectorField, buildQuiver } from '../core/triton-viz';
+import type { LatLngBounds, DemOverlayOptions, ColormapName, FloodOverlayOptions, Raster, QuiverArrow, QuiverOptions } from '../core/triton-viz';
 import type { TriforgeManifest } from '../core/types';
 import { ProjectStateController } from './state';
 import { scanProject } from '../mcp/project';
@@ -82,6 +82,38 @@ export function buildFloodFramesMessage(
   };
 }
 
+const VECTOR_DENSITY: Record<string, number> = { low: 800, med: 2000, high: 3500 };
+
+export interface VectorFramesMessage {
+  command: 'vectorFrames';
+  frames: QuiverArrow[][];
+  maxMagnitude: number;
+  stride: number;
+  note: string;
+}
+
+/**
+ * QX/QY frame pairs + crs + opts → the vectorFrames message. Two passes: find the global max
+ * magnitude across all frames, then project each frame with that reference so arrow lengths encode
+ * flow intensity consistently across the animation.
+ */
+export function buildVectorFramesMessage(qx: Grid[], qy: Grid[], crs: string, opts: QuiverOptions): VectorFramesMessage {
+  const n = Math.min(qx.length, qy.length);
+  let globalMax = 0;
+  let stride = 1;
+  for (let i = 0; i < n; i++) {
+    const f = sampleVectorField(qx[i], qy[i], { maxArrows: opts.maxArrows });
+    if (f.maxMagnitude > globalMax) globalMax = f.maxMagnitude;
+    stride = f.stride;
+  }
+  const frames: QuiverArrow[][] = [];
+  for (let i = 0; i < n; i++) {
+    frames.push(buildQuiver(qx[i], qy[i], crs, { ...opts, refMagnitude: globalMax }).arrows);
+  }
+  const note = qx.length !== qy.length ? `Using ${n} paired QX/QY frames.` : '';
+  return { command: 'vectorFrames', frames, maxMagnitude: globalMax, stride, note };
+}
+
 function safeColormap(v: unknown): ColormapName {
   return (COLORMAP_NAMES as readonly string[]).includes(v as string) ? (v as ColormapName) : 'terrain';
 }
@@ -119,6 +151,8 @@ export class DemMapPanel {
   private floodColormap: ColormapName = 'depth';
   private autoPlay = false;
   private exportBuf: { frames: Raster[]; fps: number; width: number; height: number } | undefined;
+  private vectorQx: Grid[] = [];
+  private vectorQy: Grid[] = [];
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -138,6 +172,8 @@ export class DemMapPanel {
   private async load(): Promise<void> {
     this.grid = undefined;
     this.crs = undefined;
+    this.vectorQx = [];
+    this.vectorQy = [];
     const folder = this.controller.targetFolder;
     const manifest = this.controller.manifest;
     if (!folder || !manifest) {
@@ -251,6 +287,26 @@ export class DemMapPanel {
     }
     if (msg.command === 'exportEnd') {
       await this.finishExport();
+      return;
+    }
+    if (msg.command === 'loadVectors') {
+      const folder = this.controller.targetFolder;
+      if (!folder || !this.crs) return;
+      const maxArrows = VECTOR_DENSITY[msg.density as string] ?? VECTOR_DENSITY.med;
+      const scale = typeof msg.scale === 'number' && msg.scale > 0 ? msg.scale : 1;
+      try {
+        if (this.vectorQx.length === 0 || this.vectorQy.length === 0) {
+          this.vectorQx = computeFrames(folder.fsPath, { variable: 'QX' }).frames;
+          this.vectorQy = computeFrames(folder.fsPath, { variable: 'QY' }).frames;
+        }
+        const limit = this.floodGrids.length > 0
+          ? Math.min(this.floodGrids.length, this.vectorQx.length, this.vectorQy.length)
+          : Math.min(this.vectorQx.length, this.vectorQy.length);
+        const out = buildVectorFramesMessage(this.vectorQx.slice(0, limit), this.vectorQy.slice(0, limit), this.crs, { maxArrows, scale });
+        await this.panel.webview.postMessage(out);
+      } catch (e) {
+        await this.panel.webview.postMessage({ command: 'noVectors', note: `No velocity output (QX/QY): ${(e as Error).message}` });
+      }
       return;
     }
   }
