@@ -244,7 +244,9 @@ export class DemMapPanel {
     }
     if (msg.command === 'exportAborted') {
       this.exportBuf = undefined;
-      await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: msg.reason || 'Export aborted.' });
+      const reason = msg.reason || 'Export aborted.';
+      void vscode.window.showWarningMessage(`Triforge: ${reason}`);
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: reason });
       return;
     }
     if (msg.command === 'exportEnd') {

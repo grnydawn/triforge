@@ -266,7 +266,9 @@ function decodeImage(url: string): Promise<HTMLImageElement> {
 
 async function exportGif(): Promise<void> {
   if (!floodFrames.length) {
-    $('floodHint').textContent = 'No animation to export — load a simulation with output frames first.';
+    const note = 'No animation to export — load a simulation with output frames first.';
+    $('floodHint').textContent = note;
+    vscodeApi.postMessage({ command: 'exportAborted', reason: note });
     return;
   }
   const cont = mapContainer();
@@ -279,8 +281,13 @@ async function exportGif(): Promise<void> {
   const ctx = canvas.getContext('2d')!;
   const contRect = cont.getBoundingClientRect();
 
+  // Down-stride to at most 150 exported frames to bound the streamed payload.
+  const EXPORT_MAX_FRAMES = 150;
+  const stride = floodFrames.length > EXPORT_MAX_FRAMES ? Math.ceil(floodFrames.length / EXPORT_MAX_FRAMES) : 1;
+  const framesToExport = floodFrames.filter((_, i) => i % stride === 0);
+
   let waterImgs: HTMLImageElement[];
-  try { waterImgs = await Promise.all(floodFrames.map(decodeImage)); }
+  try { waterImgs = await Promise.all(framesToExport.map(decodeImage)); }
   catch { vscodeApi.postMessage({ command: 'exportAborted', reason: 'Could not decode the animation frames.' }); return; }
 
   const drawRect = (img: CanvasImageSource, rect: DOMRect, alpha: number) => {
