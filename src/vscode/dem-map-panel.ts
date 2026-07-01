@@ -1,13 +1,32 @@
 import * as vscode from 'vscode';
 import * as zlib from 'zlib';
 import { parseEsriAsciiGrid, Grid } from '../core/triton-files';
-import { gridLatLngBounds, buildDemOverlay, encodePng, COLORMAP_NAMES } from '../core/triton-viz';
-import type { LatLngBounds, DemOverlayOptions, ColormapName } from '../core/triton-viz';
+import { gridLatLngBounds, buildDemOverlay, encodePng, COLORMAP_NAMES, COLORMAPS, floodGlobalRange, renderFloodFrame, capFrames } from '../core/triton-viz';
+import type { LatLngBounds, DemOverlayOptions, ColormapName, FloodOverlayOptions } from '../core/triton-viz';
 import type { TriforgeManifest } from '../core/types';
 import { ProjectStateController } from './state';
 
 const deflate = (bytes: Uint8Array): Uint8Array => new Uint8Array(zlib.deflateSync(bytes));
 const DEFAULT_OPTS: DemOverlayOptions = { colormap: 'terrain', hillshade: false, maxDim: 2048 };
+
+const FLOOD_MAX_DIM = 1024;
+const FLOOD_MAX_FRAMES = 200;
+const DRY_THRESHOLD = 0.001;
+
+export interface FloodFramesMessage {
+  command: 'floodFrames';
+  frames: string[];          // per-frame PNG data URIs, in playback order
+  bounds: LatLngBounds;      // shared UTM->lat/lng box (== DEM box)
+  range: { min: number; max: number };
+  width: number;
+  height: number;
+  frameNumbers: number[];    // original frame index per kept frame (for the label)
+  variable: string;
+  variables: string[];
+  stride: number;
+  note: string;
+  autoPlay: boolean;
+}
 
 export interface OverlayMessage {
   command: 'renderOverlay';
@@ -24,6 +43,40 @@ export function buildOverlayMessage(grid: Grid, crs: string, opts: DemOverlayOpt
   const { raster, range } = buildDemOverlay(grid, opts);
   const dataUri = 'data:image/png;base64,' + Buffer.from(encodePng(raster, deflate)).toString('base64');
   return { command: 'renderOverlay', dataUri, bounds, range, width: raster.width, height: raster.height };
+}
+
+/**
+ * Grid frames + crs + opts → the floodFrames message. Caps the frame count, computes a
+ * single global range so colors are stable across playback, renders + PNG-encodes each
+ * kept frame here, and shares one lat/lng box (all frames are DEM-sized). Precondition:
+ * `frames` is non-empty (callers only invoke this once frames are found).
+ */
+export function buildFloodFramesMessage(
+  frames: Grid[],
+  frameNumbers: number[],
+  crs: string,
+  opts: FloodOverlayOptions,
+  meta: { variable: string; variables: string[]; autoPlay: boolean },
+): FloodFramesMessage {
+  const { frames: kept, stride } = capFrames(frames, FLOOD_MAX_FRAMES);
+  const keptNumbers: number[] = [];
+  for (let i = 0; i < frameNumbers.length; i += stride) keptNumbers.push(frameNumbers[i]);
+  const range = floodGlobalRange(kept, opts.dryThreshold);
+  const lut = COLORMAPS[opts.colormap].lut;
+  const bounds = gridLatLngBounds(kept[0], crs);
+  let width = 0;
+  let height = 0;
+  const uris = kept.map((g) => {
+    const raster = renderFloodFrame(g, lut, range, opts.maxDim, opts.dryThreshold);
+    width = raster.width;
+    height = raster.height;
+    return 'data:image/png;base64,' + Buffer.from(encodePng(raster, deflate)).toString('base64');
+  });
+  const note = stride > 1 ? `Showing ${kept.length} of ${frames.length} frames (stride ${stride}).` : '';
+  return {
+    command: 'floodFrames', frames: uris, bounds, range, width, height,
+    frameNumbers: keptNumbers, variable: meta.variable, variables: meta.variables, stride, note, autoPlay: meta.autoPlay,
+  };
 }
 
 function safeColormap(v: unknown): ColormapName {
