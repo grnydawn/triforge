@@ -86,7 +86,7 @@ export function buildOverlayMessage(grid: Grid, crs: string, opts: DemOverlayOpt
 
 export class DemMapPanel {
   static current: DemMapPanel | undefined;
-  static show(context: vscode.ExtensionContext, controller: ProjectStateController, store: ConfigStore): DemMapPanel;
+  static show(context: vscode.ExtensionContext, controller: ProjectStateController): DemMapPanel; // read-only: needs only the controller (manifest); M4h can add `store` when it persists
   ready: Promise<void>;
   handleMessage(msg: any): Promise<void>;
   dispose(): void;
@@ -125,7 +125,7 @@ img-src ${cspSource} data: https://*.tile.openstreetmap.org https://server.arcgi
 - `.gitignore`: add `media/dem-map.js`, `media/dem-map.js.map`, `media/dem-map.css`, `media/dem-map.css.map`.
 - `.vscodeignore`: confirm `media/*.css` ships (default included; only the `.svg`/sourcemaps are excluded).
 - `Makefile` `clean`: remove `media/dem-map.js`/`.css`/`.map`.
-- `src/vscode/commands.ts`: import `DemMapPanel`, `reg('triforge.openMap', () => DemMapPanel.show(context, controller, store))`.
+- `src/vscode/commands.ts`: import `DemMapPanel`, `reg('triforge.openMap', () => DemMapPanel.show(context, controller))` (guarded on `state === 'ready'`).
 
 ## Data flow
 
