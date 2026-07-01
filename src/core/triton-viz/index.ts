@@ -20,3 +20,6 @@ export { gridLatLngBounds, buildDemOverlay } from './dem-overlay';
 export type { LatLngBounds, DemOverlayOptions } from './dem-overlay';
 export { floodGlobalRange, maskDryCells, renderFloodFrame, capFrames } from './flood-overlay';
 export type { FloodOverlayOptions } from './flood-overlay';
+export { quantizeFrames } from './quantize';
+export { encodeRgbaFramesToGif } from './rgba-gif';
+export type { RgbaGifOptions } from './rgba-gif';
