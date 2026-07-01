@@ -23,10 +23,12 @@ let overlay: L.ImageOverlay | undefined;
 let domainRect: L.Rectangle | undefined;
 let firstFit = true;
 let opacity = 0.7;
+let lastBounds: L.LatLngBoundsExpression | undefined;
 
 function showOverlay(dataUri: string, b: LatLngBounds): void {
   $('notice').style.display = 'none';
   const bounds = llBounds(b);
+  lastBounds = bounds;
   if (overlay) {
     overlay.setBounds(L.latLngBounds(bounds));
     overlay.setUrl(dataUri);
@@ -42,9 +44,11 @@ function showNotice(text: string, domain?: LatLngBounds): void {
   el.textContent = text;
   el.style.display = 'block';
   if (domain) {
+    const bounds = llBounds(domain);
+    lastBounds = bounds;
     if (domainRect) domainRect.remove();
-    domainRect = L.rectangle(llBounds(domain), { color: '#3af', weight: 2, fill: false }).addTo(map);
-    if (firstFit) { map.fitBounds(llBounds(domain)); firstFit = false; }
+    domainRect = L.rectangle(bounds, { color: '#3af', weight: 2, fill: false }).addTo(map);
+    if (firstFit) { map.fitBounds(bounds); firstFit = false; }
   }
 }
 
@@ -63,6 +67,7 @@ function initControls(): void {
   ($('hillshade') as HTMLInputElement).addEventListener('change', rerender);
   const op = $('opacity') as HTMLInputElement;
   op.addEventListener('input', () => { opacity = Number(op.value) / 100; if (overlay) overlay.setOpacity(opacity); });
+  $('fit').addEventListener('click', () => { if (lastBounds) map.fitBounds(lastBounds); });
 }
 
 window.addEventListener('message', (e: MessageEvent) => {

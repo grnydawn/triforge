@@ -146,6 +146,8 @@ export class DemMapPanel {
     background: var(--vscode-editor-background); border-bottom: 1px solid var(--vscode-input-border, #8884); z-index: 1100; }
   #controls select, #controls input[type=range] { background: var(--vscode-input-background);
     color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); }
+  #controls button { cursor: pointer; padding: .2rem .7rem; border: none;
+    background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
   #range { opacity: .8; }
   #map { flex: 1 1 auto; min-height: 0; }
   .leaflet-container { background: var(--vscode-editor-background); }
@@ -159,6 +161,7 @@ export class DemMapPanel {
     <label>Colormap <select id="colormap"></select></label>
     <label><input type="checkbox" id="hillshade"> Hillshade</label>
     <label>Opacity <input type="range" id="opacity" min="0" max="100" value="70"></label>
+    <button id="fit" type="button">Fit</button>
     <span id="range"></span>
   </div>
   <div id="map"></div>
