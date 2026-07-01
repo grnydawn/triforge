@@ -2,11 +2,12 @@ import * as vscode from 'vscode';
 import * as zlib from 'zlib';
 import { parseEsriAsciiGrid, Grid } from '../core/triton-files';
 import { gridLatLngBounds, buildDemOverlay, encodePng, COLORMAP_NAMES, COLORMAPS, floodGlobalRange, renderFloodFrame, capFrames } from '../core/triton-viz';
-import type { LatLngBounds, DemOverlayOptions, ColormapName, FloodOverlayOptions } from '../core/triton-viz';
+import type { LatLngBounds, DemOverlayOptions, ColormapName, FloodOverlayOptions, Raster } from '../core/triton-viz';
 import type { TriforgeManifest } from '../core/types';
 import { ProjectStateController } from './state';
 import { scanProject } from '../mcp/project';
 import { computeFrames } from '../mcp/tools';
+import { writeMapGif } from './map-gif-export';
 
 const deflate = (bytes: Uint8Array): Uint8Array => new Uint8Array(zlib.deflateSync(bytes));
 const DEFAULT_OPTS: DemOverlayOptions = { colormap: 'terrain', hillshade: false, maxDim: 2048 };
@@ -117,6 +118,7 @@ export class DemMapPanel {
   private floodVariables: string[] = [];
   private floodColormap: ColormapName = 'depth';
   private autoPlay = false;
+  private exportBuf: { frames: Raster[]; fps: number; width: number; height: number } | undefined;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -231,6 +233,53 @@ export class DemMapPanel {
         await this.postFlood();          // colormap-only: re-render cached grids
       }
     }
+    if (msg.command === 'exportBegin') {
+      this.exportBuf = { frames: [], fps: typeof msg.fps === 'number' && msg.fps > 0 ? msg.fps : 4, width: msg.width, height: msg.height };
+      return;
+    }
+    if (msg.command === 'exportFrame') {
+      const buf = this.exportBuf;
+      if (buf && msg.rgba) buf.frames.push({ width: buf.width, height: buf.height, rgba: new Uint8ClampedArray(msg.rgba) });
+      return;
+    }
+    if (msg.command === 'exportAborted') {
+      this.exportBuf = undefined;
+      const reason = msg.reason || 'Export aborted.';
+      void vscode.window.showWarningMessage(`Triforge: ${reason}`);
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: reason });
+      return;
+    }
+    if (msg.command === 'exportEnd') {
+      await this.finishExport();
+      return;
+    }
+  }
+
+  /** Posted by the export command; tells the webview to composite + stream the current view. */
+  async requestExport(): Promise<void> {
+    await this.ready;
+    await this.panel.webview.postMessage({ command: 'requestExport' });
+  }
+
+  /** Encode + save the streamed frames, then report back to the webview. */
+  private async finishExport(): Promise<void> {
+    const buf = this.exportBuf;
+    this.exportBuf = undefined;
+    const folder = this.controller.targetFolder;
+    if (!buf || buf.frames.length === 0 || !folder) {
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: 'No frames captured for export.' });
+      return;
+    }
+    try {
+      const res = await writeMapGif(buf.frames, buf.fps, vscode.Uri.joinPath(folder, 'map_animation.gif'));
+      if (res.cancelled) { await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: '' }); return; }
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: true, message: `Exported ${buf.frames.length}-frame GIF.` });
+      const choice = await vscode.window.showInformationMessage(`Triforge: exported ${res.written}`, 'Open', 'Reveal in Explorer');
+      if (choice === 'Open') await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(res.written!));
+      else if (choice === 'Reveal in Explorer') await vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(res.written!));
+    } catch (e) {
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: `Export failed: ${(e as Error).message}` });
+    }
   }
 
   private async postOverlay(opts: DemOverlayOptions): Promise<void> {
@@ -281,6 +330,13 @@ export class DemMapPanel {
     background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
   #timeline { flex: 1 1 8rem; min-width: 8rem; }
   #frameLabel, #floodNote, #floodHint { opacity: .8; }
+  #selectArea.active { outline: 2px solid var(--vscode-focusBorder, #09f); }
+  #cropbox { position: absolute; border: 1.5px dashed #09f; background: rgba(0,150,255,.08); z-index: 1150; display: none; }
+  .crop-handle { position: absolute; width: 10px; height: 10px; background: #09f; border: 1px solid #fff; box-sizing: border-box; }
+  .crop-handle.nw { left: -5px; top: -5px; cursor: nwse-resize; }
+  .crop-handle.ne { right: -5px; top: -5px; cursor: nesw-resize; }
+  .crop-handle.sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+  .crop-handle.se { right: -5px; bottom: -5px; cursor: nwse-resize; }
   #range { opacity: .8; }
   #map { flex: 1 1 auto; min-height: 0; }
   .leaflet-container { background: var(--vscode-editor-background); }
@@ -306,6 +362,8 @@ export class DemMapPanel {
     <label>Opacity <input type="range" id="waterOpacity" min="0" max="100" value="80"></label>
     <label>fps <select id="fps"></select></label>
     <label id="variableWrap" style="display:none">Variable <select id="variable"></select></label>
+    <button id="selectArea" type="button">Select area</button>
+    <button id="exportGif" type="button">Export GIF</button>
     <span id="floodNote"></span>
   </div>
   <div id="map"></div>

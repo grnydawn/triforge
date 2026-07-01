@@ -50,6 +50,13 @@ describe('DemMapPanel (M4d)', () => {
     const all = await vscode.commands.getCommands(true);
     assert.ok(all.includes('triforge.playFloodAnimation'));
   });
+
+  it('registers the triforge.exportMapGif command', async () => {
+    const ext = vscode.extensions.getExtension('grnydawn.triforge')!;
+    await ext.activate();
+    const all = await vscode.commands.getCommands(true);
+    assert.ok(all.includes('triforge.exportMapGif'));
+  });
 });
 
 describe('DemMapPanel flood frames (M4e)', () => {

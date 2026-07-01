@@ -135,6 +135,14 @@ export function registerCommands(
     DemMapPanel.show(context, controller, true);
   });
 
+  reg('triforge.exportMapGif', async () => {
+    if (!controller.targetFolder || controller.state !== 'ready') {
+      vscode.window.showWarningMessage('Triforge: open a ready Triton project first.');
+      return;
+    }
+    await DemMapPanel.show(context, controller).requestExport();
+  });
+
   reg('triforge.openSolverConfig', async (resource?: vscode.Uri) => {
     const folder = controller.targetFolder;
     if (!folder || controller.state !== 'ready') {
