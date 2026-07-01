@@ -124,6 +124,11 @@
         "command": "triforge.openMap",
         "title": "Open Map…",
         "category": "Triforge"
+      },
+      {
+        "command": "triforge.playFloodAnimation",
+        "title": "Play Flood Animation on Map",
+        "category": "Triforge"
       }
     ],
     "menus": {
@@ -146,6 +151,10 @@
         },
         {
           "command": "triforge.openMap",
+          "when": "triforge:active"
+        },
+        {
+          "command": "triforge.playFloodAnimation",
           "when": "triforge:active"
         }
       ],
