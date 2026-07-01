@@ -124,6 +124,11 @@ function stopPlay(): void {
 }
 
 function showFloodFrames(msg: any): void {
+  // A same-length re-post is a colormap re-render of the same frames: keep the scrub
+  // position and playback state so changing the water colormap isn't disruptive.
+  const samePos = floodFrames.length === msg.frames.length && !msg.autoPlay;
+  const wasPlaying = playing;
+  const resumeIdx = samePos ? frameIdx : 0;
   floodFrames = msg.frames;
   floodFrameNumbers = msg.frameNumbers;
   floodBox = msg.bounds;
@@ -139,8 +144,8 @@ function showFloodFrames(msg: any): void {
   }
   $('flood-controls').classList.add('shown');
   if (floodOverlay && floodBox) floodOverlay.setBounds(L.latLngBounds(llBounds(floodBox)));
-  showFrame(0);
-  if (msg.autoPlay) startPlay(); else stopPlay();
+  showFrame(resumeIdx);
+  if (msg.autoPlay || (samePos && wasPlaying)) startPlay(); else stopPlay();
 }
 
 function hideFloodFrames(note: string): void {

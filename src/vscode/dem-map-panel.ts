@@ -206,6 +206,7 @@ export class DemMapPanel {
       const msg = buildFloodFramesMessage(this.floodGrids, this.floodFrameNumbers, this.crs, opts,
         { variable: this.floodVariable ?? 'H', variables: this.floodVariables, autoPlay: this.autoPlay });
       await this.panel.webview.postMessage(msg);
+      this.autoPlay = false; // one-shot: only the first post after opening via the command auto-plays
     } catch (e) {
       await this.panel.webview.postMessage({ command: 'noFloodFrames', note: `Could not render flood frames: ${(e as Error).message}` });
     }
