@@ -328,6 +328,13 @@ export class DemMapPanel {
     background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
   #timeline { flex: 1 1 8rem; min-width: 8rem; }
   #frameLabel, #floodNote, #floodHint { opacity: .8; }
+  #selectArea.active { outline: 2px solid var(--vscode-focusBorder, #09f); }
+  #cropbox { position: absolute; border: 1.5px dashed #09f; background: rgba(0,150,255,.08); z-index: 1150; display: none; }
+  .crop-handle { position: absolute; width: 10px; height: 10px; background: #09f; border: 1px solid #fff; box-sizing: border-box; }
+  .crop-handle.nw { left: -5px; top: -5px; cursor: nwse-resize; }
+  .crop-handle.ne { right: -5px; top: -5px; cursor: nesw-resize; }
+  .crop-handle.sw { left: -5px; bottom: -5px; cursor: nesw-resize; }
+  .crop-handle.se { right: -5px; bottom: -5px; cursor: nwse-resize; }
   #range { opacity: .8; }
   #map { flex: 1 1 auto; min-height: 0; }
   .leaflet-container { background: var(--vscode-editor-background); }
@@ -353,6 +360,8 @@ export class DemMapPanel {
     <label>Opacity <input type="range" id="waterOpacity" min="0" max="100" value="80"></label>
     <label>fps <select id="fps"></select></label>
     <label id="variableWrap" style="display:none">Variable <select id="variable"></select></label>
+    <button id="selectArea" type="button">Select area</button>
+    <button id="exportGif" type="button">Export GIF</button>
     <span id="floodNote"></span>
   </div>
   <div id="map"></div>

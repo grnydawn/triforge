@@ -14,8 +14,8 @@ interface LatLngBounds { south: number; west: number; north: number; east: numbe
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 const llBounds = (b: LatLngBounds): L.LatLngBoundsExpression => [[b.south, b.west], [b.north, b.east]];
 
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' });
-const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '© Esri' });
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap', crossOrigin: 'anonymous' });
+const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '© Esri', crossOrigin: 'anonymous' });
 const map = L.map($('map'), { center: [0, 0], zoom: 2, layers: [osm] });
 L.control.layers({ 'OpenStreetMap': osm, 'Esri World Imagery': esri }).addTo(map);
 setTimeout(() => map.invalidateSize(), 0);
@@ -82,6 +82,8 @@ function initControls(): void {
   wop.addEventListener('input', () => { waterOpacity = Number(wop.value) / 100; if (floodOverlay) floodOverlay.setOpacity(waterOpacity); });
   ($('variable') as HTMLSelectElement).addEventListener('change', (e) =>
     vscodeApi.postMessage({ command: 'reloadFlood', variable: (e.target as HTMLSelectElement).value }));
+  $('selectArea').addEventListener('click', () => setCropMode(!cropMode));
+  $('exportGif').addEventListener('click', () => { void exportGif(); });
 }
 
 // ---- Flood animation (M4e) ----
@@ -156,6 +158,164 @@ function hideFloodFrames(note: string): void {
   $('floodHint').textContent = note ?? '';
 }
 
+// ---- Crop box + WYSIWYG GIF export (M4f) ----
+type Rect = { x: number; y: number; w: number; h: number };
+let cropMode = false;
+let cropRect: Rect | undefined;
+let cropEl: HTMLDivElement | undefined;
+type Drag = { mode: 'draw' | 'move' | 'resize'; handle?: string; startX: number; startY: number; orig?: Rect };
+let drag: Drag | undefined;
+
+function mapContainer(): HTMLElement { return $('map'); }
+
+function ensureCropEl(): HTMLDivElement {
+  if (cropEl) return cropEl;
+  const el = document.createElement('div');
+  el.id = 'cropbox';
+  for (const h of ['nw', 'ne', 'sw', 'se']) {
+    const hd = document.createElement('div');
+    hd.className = 'crop-handle ' + h;
+    hd.dataset.handle = h;
+    el.appendChild(hd);
+  }
+  mapContainer().appendChild(el);
+  cropEl = el;
+  return el;
+}
+
+function renderCrop(): void {
+  const el = ensureCropEl();
+  if (!cropRect) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.left = cropRect.x + 'px';
+  el.style.top = cropRect.y + 'px';
+  el.style.width = cropRect.w + 'px';
+  el.style.height = cropRect.h + 'px';
+}
+
+function setCropMode(on: boolean): void {
+  cropMode = on;
+  $('selectArea').classList.toggle('active', on);
+  ensureCropEl().style.pointerEvents = on ? 'auto' : 'none';
+  if (on) { map.dragging.disable(); mapContainer().style.cursor = 'crosshair'; }
+  else { map.dragging.enable(); mapContainer().style.cursor = ''; }
+}
+
+function localPoint(e: MouseEvent): { x: number; y: number } {
+  const r = mapContainer().getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+mapContainer().addEventListener('mousedown', (e) => {
+  if (!cropMode) return;
+  e.preventDefault();
+  const p = localPoint(e);
+  const handle = (e.target as HTMLElement).dataset?.handle;
+  if (handle && cropRect) {
+    drag = { mode: 'resize', handle, startX: p.x, startY: p.y, orig: { ...cropRect } };
+  } else if (cropRect && p.x >= cropRect.x && p.x <= cropRect.x + cropRect.w && p.y >= cropRect.y && p.y <= cropRect.y + cropRect.h) {
+    drag = { mode: 'move', startX: p.x, startY: p.y, orig: { ...cropRect } };
+  } else {
+    cropRect = { x: p.x, y: p.y, w: 0, h: 0 };
+    drag = { mode: 'draw', startX: p.x, startY: p.y };
+  }
+  renderCrop();
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!drag) return;
+  const p = localPoint(e);
+  const dx = p.x - drag.startX, dy = p.y - drag.startY;
+  if (drag.mode === 'draw') {
+    cropRect = { x: Math.min(drag.startX, p.x), y: Math.min(drag.startY, p.y), w: Math.abs(dx), h: Math.abs(dy) };
+  } else if (drag.mode === 'move' && drag.orig) {
+    cropRect = { x: drag.orig.x + dx, y: drag.orig.y + dy, w: drag.orig.w, h: drag.orig.h };
+  } else if (drag.mode === 'resize' && drag.orig && drag.handle) {
+    let { x, y, w, h } = drag.orig;
+    if (drag.handle.includes('w')) { x = drag.orig.x + dx; w = drag.orig.w - dx; }
+    if (drag.handle.includes('e')) { w = drag.orig.w + dx; }
+    if (drag.handle.includes('n')) { y = drag.orig.y + dy; h = drag.orig.h - dy; }
+    if (drag.handle.includes('s')) { h = drag.orig.h + dy; }
+    cropRect = { x, y, w, h };
+  }
+  renderCrop();
+});
+
+window.addEventListener('mouseup', () => {
+  if (drag && cropRect) {
+    if (cropRect.w < 0) { cropRect.x += cropRect.w; cropRect.w = -cropRect.w; }
+    if (cropRect.h < 0) { cropRect.y += cropRect.h; cropRect.h = -cropRect.h; }
+    if (cropRect.w < 5 || cropRect.h < 5) cropRect = undefined;
+    renderCrop();
+  }
+  drag = undefined;
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && cropMode) { cropRect = undefined; renderCrop(); setCropMode(false); }
+});
+
+function decodeImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('decode failed'));
+    img.src = url;
+  });
+}
+
+async function exportGif(): Promise<void> {
+  if (!floodFrames.length) {
+    $('floodHint').textContent = 'No animation to export — load a simulation with output frames first.';
+    return;
+  }
+  const cont = mapContainer();
+  const cr: Rect = cropRect ?? { x: 0, y: 0, w: cont.clientWidth, h: cont.clientHeight };
+  const scale = Math.min(1, 720 / Math.max(cr.w, cr.h));
+  const outW = Math.max(1, Math.round(cr.w * scale));
+  const outH = Math.max(1, Math.round(cr.h * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = outW; canvas.height = outH;
+  const ctx = canvas.getContext('2d')!;
+  const contRect = cont.getBoundingClientRect();
+
+  let waterImgs: HTMLImageElement[];
+  try { waterImgs = await Promise.all(floodFrames.map(decodeImage)); }
+  catch { vscodeApi.postMessage({ command: 'exportAborted', reason: 'Could not decode the animation frames.' }); return; }
+
+  const drawRect = (img: CanvasImageSource, rect: DOMRect, alpha: number) => {
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, (rect.left - contRect.left - cr.x) * scale, (rect.top - contRect.top - cr.y) * scale, rect.width * scale, rect.height * scale);
+    ctx.globalAlpha = 1;
+  };
+
+  const demImg = overlay ? ((overlay as any)._image as HTMLImageElement | undefined) : undefined;
+  const waterImgEl = floodOverlay ? ((floodOverlay as any)._image as HTMLImageElement | undefined) : undefined;
+  const waterRect = waterImgEl ? waterImgEl.getBoundingClientRect() : undefined;
+
+  const paintBackground = () => {
+    ctx.clearRect(0, 0, outW, outH);
+    cont.querySelectorAll('img.leaflet-tile-loaded').forEach((t) => {
+      const img = t as HTMLImageElement;
+      drawRect(img, img.getBoundingClientRect(), 1);
+    });
+    if (demImg) drawRect(demImg, demImg.getBoundingClientRect(), opacity);
+  };
+
+  vscodeApi.postMessage({ command: 'exportBegin', count: waterImgs.length, width: outW, height: outH, fps });
+  try {
+    for (let i = 0; i < waterImgs.length; i++) {
+      paintBackground();
+      if (waterRect) drawRect(waterImgs[i], waterRect, waterOpacity);
+      const rgba = ctx.getImageData(0, 0, outW, outH).data; // throws if tainted
+      vscodeApi.postMessage({ command: 'exportFrame', index: i, rgba });
+    }
+    vscodeApi.postMessage({ command: 'exportEnd' });
+  } catch {
+    vscodeApi.postMessage({ command: 'exportAborted', reason: 'Could not read the basemap tiles for export (cross-origin). Try the OpenStreetMap basemap, or zoom so tiles reload.' });
+  }
+}
+
 window.addEventListener('message', (e: MessageEvent) => {
   const msg = e.data;
   if (msg.command === 'renderOverlay') {
@@ -171,6 +331,10 @@ window.addEventListener('message', (e: MessageEvent) => {
     showFloodFrames(msg);
   } else if (msg.command === 'noFloodFrames') {
     hideFloodFrames(msg.note);
+  } else if (msg.command === 'requestExport') {
+    void exportGif();
+  } else if (msg.command === 'exportDone') {
+    $('floodNote').textContent = msg.message ?? '';
   }
 });
 
