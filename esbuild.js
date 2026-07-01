@@ -36,15 +36,28 @@ const solverConfigWebview = {
   logLevel: 'info',
 };
 
+const demMapWebview = {
+  entryPoints: ['src/webview/dem-map/main.ts'],
+  bundle: true,
+  outfile: 'media/dem-map.js',
+  platform: 'browser',
+  format: 'iife',
+  target: 'es2020',
+  sourcemap: true,
+  logLevel: 'info',
+  loader: { '.png': 'dataurl' }, // inline Leaflet's layer-control images referenced from leaflet.css
+};
+
 async function run() {
   if (watch) {
     const c1 = await esbuild.context(extension);
     const c2 = await esbuild.context(webview);
     const c3 = await esbuild.context(solverConfigWebview);
-    await Promise.all([c1.watch(), c2.watch(), c3.watch()]);
+    const c4 = await esbuild.context(demMapWebview);
+    await Promise.all([c1.watch(), c2.watch(), c3.watch(), c4.watch()]);
     console.log('esbuild watching…');
   } else {
-    await Promise.all([esbuild.build(extension), esbuild.build(webview), esbuild.build(solverConfigWebview)]);
+    await Promise.all([esbuild.build(extension), esbuild.build(webview), esbuild.build(solverConfigWebview), esbuild.build(demMapWebview)]);
   }
 }
 run().catch((e) => { console.error(e); process.exit(1); });

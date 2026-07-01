@@ -5,6 +5,10 @@ media/creation.js
 media/creation.js.map
 media/solver-config.js
 media/solver-config.js.map
+media/dem-map.js
+media/dem-map.js.map
+media/dem-map.css
+media/dem-map.css.map
 .vscode-test/
 coverage/
 *.vsix
