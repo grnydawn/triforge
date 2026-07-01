@@ -2,11 +2,12 @@ import * as vscode from 'vscode';
 import * as zlib from 'zlib';
 import { parseEsriAsciiGrid, Grid } from '../core/triton-files';
 import { gridLatLngBounds, buildDemOverlay, encodePng, COLORMAP_NAMES, COLORMAPS, floodGlobalRange, renderFloodFrame, capFrames } from '../core/triton-viz';
-import type { LatLngBounds, DemOverlayOptions, ColormapName, FloodOverlayOptions } from '../core/triton-viz';
+import type { LatLngBounds, DemOverlayOptions, ColormapName, FloodOverlayOptions, Raster } from '../core/triton-viz';
 import type { TriforgeManifest } from '../core/types';
 import { ProjectStateController } from './state';
 import { scanProject } from '../mcp/project';
 import { computeFrames } from '../mcp/tools';
+import { writeMapGif } from './map-gif-export';
 
 const deflate = (bytes: Uint8Array): Uint8Array => new Uint8Array(zlib.deflateSync(bytes));
 const DEFAULT_OPTS: DemOverlayOptions = { colormap: 'terrain', hillshade: false, maxDim: 2048 };
@@ -117,6 +118,7 @@ export class DemMapPanel {
   private floodVariables: string[] = [];
   private floodColormap: ColormapName = 'depth';
   private autoPlay = false;
+  private exportBuf: { frames: Raster[]; fps: number; width: number; height: number } | undefined;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
@@ -230,6 +232,51 @@ export class DemMapPanel {
       } else {
         await this.postFlood();          // colormap-only: re-render cached grids
       }
+    }
+    if (msg.command === 'exportBegin') {
+      this.exportBuf = { frames: [], fps: typeof msg.fps === 'number' && msg.fps > 0 ? msg.fps : 4, width: msg.width, height: msg.height };
+      return;
+    }
+    if (msg.command === 'exportFrame') {
+      const buf = this.exportBuf;
+      if (buf && msg.rgba) buf.frames.push({ width: buf.width, height: buf.height, rgba: new Uint8ClampedArray(msg.rgba) });
+      return;
+    }
+    if (msg.command === 'exportAborted') {
+      this.exportBuf = undefined;
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: msg.reason || 'Export aborted.' });
+      return;
+    }
+    if (msg.command === 'exportEnd') {
+      await this.finishExport();
+      return;
+    }
+  }
+
+  /** Posted by the export command; tells the webview to composite + stream the current view. */
+  async requestExport(): Promise<void> {
+    await this.ready;
+    await this.panel.webview.postMessage({ command: 'requestExport' });
+  }
+
+  /** Encode + save the streamed frames, then report back to the webview. */
+  private async finishExport(): Promise<void> {
+    const buf = this.exportBuf;
+    this.exportBuf = undefined;
+    const folder = this.controller.targetFolder;
+    if (!buf || buf.frames.length === 0 || !folder) {
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: 'No frames captured for export.' });
+      return;
+    }
+    try {
+      const res = await writeMapGif(buf.frames, buf.fps, vscode.Uri.joinPath(folder, 'map_animation.gif'));
+      if (res.cancelled) { await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: '' }); return; }
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: true, message: `Exported ${buf.frames.length}-frame GIF.` });
+      const choice = await vscode.window.showInformationMessage(`Triforge: exported ${res.written}`, 'Open', 'Reveal in Explorer');
+      if (choice === 'Open') await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(res.written!));
+      else if (choice === 'Reveal in Explorer') await vscode.commands.executeCommand('revealInExplorer', vscode.Uri.file(res.written!));
+    } catch (e) {
+      await this.panel.webview.postMessage({ command: 'exportDone', ok: false, message: `Export failed: ${(e as Error).message}` });
     }
   }
 
