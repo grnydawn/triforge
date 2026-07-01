@@ -16,3 +16,5 @@ export { encodeAnimatedGif } from './gif';
 export type { AnimatedGifOptions } from './gif';
 export { encodeFramesToGif, indexFrame, animationPalette } from './animate';
 export type { EncodeFramesOptions, EncodeFramesResult } from './animate';
+export { gridLatLngBounds, buildDemOverlay } from './dem-overlay';
+export type { LatLngBounds, DemOverlayOptions } from './dem-overlay';
