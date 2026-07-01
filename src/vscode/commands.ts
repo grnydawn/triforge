@@ -127,6 +127,14 @@ export function registerCommands(
     DemMapPanel.show(context, controller);
   });
 
+  reg('triforge.playFloodAnimation', () => {
+    if (!controller.targetFolder || controller.state !== 'ready') {
+      vscode.window.showWarningMessage('Triforge: open a ready Triton project first.');
+      return;
+    }
+    DemMapPanel.show(context, controller, true);
+  });
+
   reg('triforge.openSolverConfig', async (resource?: vscode.Uri) => {
     const folder = controller.targetFolder;
     if (!folder || controller.state !== 'ready') {

@@ -1,13 +1,34 @@
 import * as vscode from 'vscode';
 import * as zlib from 'zlib';
 import { parseEsriAsciiGrid, Grid } from '../core/triton-files';
-import { gridLatLngBounds, buildDemOverlay, encodePng, COLORMAP_NAMES } from '../core/triton-viz';
-import type { LatLngBounds, DemOverlayOptions, ColormapName } from '../core/triton-viz';
+import { gridLatLngBounds, buildDemOverlay, encodePng, COLORMAP_NAMES, COLORMAPS, floodGlobalRange, renderFloodFrame, capFrames } from '../core/triton-viz';
+import type { LatLngBounds, DemOverlayOptions, ColormapName, FloodOverlayOptions } from '../core/triton-viz';
 import type { TriforgeManifest } from '../core/types';
 import { ProjectStateController } from './state';
+import { scanProject } from '../mcp/project';
+import { computeFrames } from '../mcp/tools';
 
 const deflate = (bytes: Uint8Array): Uint8Array => new Uint8Array(zlib.deflateSync(bytes));
 const DEFAULT_OPTS: DemOverlayOptions = { colormap: 'terrain', hillshade: false, maxDim: 2048 };
+
+const FLOOD_MAX_DIM = 1024;
+const FLOOD_MAX_FRAMES = 200;
+const DRY_THRESHOLD = 0.001;
+
+export interface FloodFramesMessage {
+  command: 'floodFrames';
+  frames: string[];          // per-frame PNG data URIs, in playback order
+  bounds: LatLngBounds;      // shared UTM->lat/lng box (== DEM box)
+  range: { min: number; max: number };
+  width: number;
+  height: number;
+  frameNumbers: number[];    // original frame index per kept frame (for the label)
+  variable: string;
+  variables: string[];
+  stride: number;
+  note: string;
+  autoPlay: boolean;
+}
 
 export interface OverlayMessage {
   command: 'renderOverlay';
@@ -26,15 +47,53 @@ export function buildOverlayMessage(grid: Grid, crs: string, opts: DemOverlayOpt
   return { command: 'renderOverlay', dataUri, bounds, range, width: raster.width, height: raster.height };
 }
 
+/**
+ * Grid frames + crs + opts → the floodFrames message. Caps the frame count, computes a
+ * single global range so colors are stable across playback, renders + PNG-encodes each
+ * kept frame here, and shares one lat/lng box (all frames are DEM-sized). Precondition:
+ * `frames` is non-empty (callers only invoke this once frames are found).
+ */
+export function buildFloodFramesMessage(
+  frames: Grid[],
+  frameNumbers: number[],
+  crs: string,
+  opts: FloodOverlayOptions,
+  meta: { variable: string; variables: string[]; autoPlay: boolean },
+): FloodFramesMessage {
+  const { frames: kept, stride } = capFrames(frames, FLOOD_MAX_FRAMES);
+  const keptNumbers: number[] = [];
+  for (let i = 0; i < frameNumbers.length; i += stride) keptNumbers.push(frameNumbers[i]);
+  const range = floodGlobalRange(kept, opts.dryThreshold);
+  const lut = COLORMAPS[opts.colormap].lut;
+  const bounds = gridLatLngBounds(kept[0], crs);
+  let width = 0;
+  let height = 0;
+  const uris = kept.map((g) => {
+    const raster = renderFloodFrame(g, lut, range, opts.maxDim, opts.dryThreshold);
+    width = raster.width;
+    height = raster.height;
+    return 'data:image/png;base64,' + Buffer.from(encodePng(raster, deflate)).toString('base64');
+  });
+  const note = stride > 1 ? `Showing ${kept.length} of ${frames.length} frames (stride ${stride}).` : '';
+  return {
+    command: 'floodFrames', frames: uris, bounds, range, width, height,
+    frameNumbers: keptNumbers, variable: meta.variable, variables: meta.variables, stride, note, autoPlay: meta.autoPlay,
+  };
+}
+
 function safeColormap(v: unknown): ColormapName {
   return (COLORMAP_NAMES as readonly string[]).includes(v as string) ? (v as ColormapName) : 'terrain';
 }
 
+const safeFloodColormap = (v: unknown): ColormapName =>
+  (COLORMAP_NAMES as readonly string[]).includes(v as string) ? (v as ColormapName) : 'depth';
+
 export class DemMapPanel {
   static current: DemMapPanel | undefined;
 
-  static show(context: vscode.ExtensionContext, controller: ProjectStateController): DemMapPanel {
+  static show(context: vscode.ExtensionContext, controller: ProjectStateController, autoPlay = false): DemMapPanel {
     if (DemMapPanel.current) {
+      DemMapPanel.current.autoPlay = autoPlay;
       DemMapPanel.current.panel.reveal();
       DemMapPanel.current.ready = DemMapPanel.current.load();
       return DemMapPanel.current;
@@ -43,7 +102,7 @@ export class DemMapPanel {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')],
     });
-    const created = new DemMapPanel(panel, context, controller);
+    const created = new DemMapPanel(panel, context, controller, autoPlay);
     DemMapPanel.current = created;
     return created;
   }
@@ -52,12 +111,20 @@ export class DemMapPanel {
   ready: Promise<void>;
   private grid: Grid | undefined;
   private crs: string | undefined;
+  private floodGrids: Grid[] = [];
+  private floodFrameNumbers: number[] = [];
+  private floodVariable: string | undefined;
+  private floodVariables: string[] = [];
+  private floodColormap: ColormapName = 'depth';
+  private autoPlay = false;
 
   private constructor(
     private readonly panel: vscode.WebviewPanel,
     context: vscode.ExtensionContext,
     private readonly controller: ProjectStateController,
+    autoPlay: boolean,
   ) {
+    this.autoPlay = autoPlay;
     panel.webview.html = this.html(panel.webview, context.extensionUri);
     panel.webview.onDidReceiveMessage((msg) => this.handleMessage(msg));
     panel.onDidDispose(() => { if (DemMapPanel.current === this) DemMapPanel.current = undefined; });
@@ -101,12 +168,69 @@ export class DemMapPanel {
     this.grid = grid;
     this.crs = crs;
     await this.postOverlay(DEFAULT_OPTS);
+    await this.loadFlood(folder);
+  }
+
+  /** Scan for output frames of the active variable, cache the stitched grids, and post them. */
+  private async loadFlood(folder: vscode.Uri): Promise<void> {
+    this.floodGrids = [];
+    this.floodFrameNumbers = [];
+    if (!this.crs) return;
+    try {
+      const scan = scanProject(folder.fsPath);
+      const variables = [...new Set(scan.outputs.asc.map((f) => f.variable))].sort();
+      if (variables.length === 0) {
+        await this.panel.webview.postMessage({ command: 'noFloodFrames', note: 'No simulation output frames (output/asc/*.out) yet — run the solver to see the flood animation.' });
+        return;
+      }
+      this.floodVariables = variables;
+      const variable = this.floodVariable && variables.includes(this.floodVariable) ? this.floodVariable
+        : variables.includes('H') ? 'H' : variables[0];
+      this.floodVariable = variable;
+      const parts = scan.outputs.asc.filter((f) => f.variable === variable);
+      const frameNumbers = [...new Set(parts.map((f) => f.frame))].sort((a, b) => a - b);
+      const { frames } = computeFrames(folder.fsPath, { paths: parts.map((p) => p.file) });
+      this.floodGrids = frames;
+      this.floodFrameNumbers = frameNumbers;
+      await this.postFlood();
+    } catch (e) {
+      await this.panel.webview.postMessage({ command: 'noFloodFrames', note: `Could not load flood frames: ${(e as Error).message}` });
+    }
+  }
+
+  /** Render the cached flood grids with the current water colormap and post them. */
+  private async postFlood(): Promise<void> {
+    if (!this.crs || this.floodGrids.length === 0) return;
+    const opts: FloodOverlayOptions = { colormap: this.floodColormap, maxDim: FLOOD_MAX_DIM, dryThreshold: DRY_THRESHOLD };
+    try {
+      const msg = buildFloodFramesMessage(this.floodGrids, this.floodFrameNumbers, this.crs, opts,
+        { variable: this.floodVariable ?? 'H', variables: this.floodVariables, autoPlay: this.autoPlay });
+      await this.panel.webview.postMessage(msg);
+      this.autoPlay = false; // one-shot: only the first post after opening via the command auto-plays
+    } catch (e) {
+      await this.panel.webview.postMessage({ command: 'noFloodFrames', note: `Could not render flood frames: ${(e as Error).message}` });
+    }
   }
 
   /** Exposed so integration tests can drive the protocol without the DOM. */
   async handleMessage(msg: any): Promise<void> {
-    if (!msg || msg.command !== 'rerender' || !this.grid || !this.crs) return;
-    await this.postOverlay({ colormap: safeColormap(msg.colormap), hillshade: !!msg.hillshade, maxDim: DEFAULT_OPTS.maxDim });
+    if (!msg) return;
+    if (msg.command === 'rerender') {
+      if (!this.grid || !this.crs) return;
+      await this.postOverlay({ colormap: safeColormap(msg.colormap), hillshade: !!msg.hillshade, maxDim: DEFAULT_OPTS.maxDim });
+      return;
+    }
+    if (msg.command === 'reloadFlood') {
+      const folder = this.controller.targetFolder;
+      if (!folder || !this.crs) return;
+      if (msg.colormap) this.floodColormap = safeFloodColormap(msg.colormap);
+      if (msg.variable && msg.variable !== this.floodVariable) {
+        this.floodVariable = msg.variable;
+        await this.loadFlood(folder);   // re-read for the new variable
+      } else {
+        await this.postFlood();          // colormap-only: re-render cached grids
+      }
+    }
   }
 
   private async postOverlay(opts: DemOverlayOptions): Promise<void> {
@@ -148,6 +272,15 @@ export class DemMapPanel {
     color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); }
   #controls button { cursor: pointer; padding: .2rem .7rem; border: none;
     background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+  #flood-controls { display: none; padding: .4rem .6rem; gap: 1rem; align-items: center; flex-wrap: wrap;
+    background: var(--vscode-editor-background); border-bottom: 1px solid var(--vscode-input-border, #8884); z-index: 1100; }
+  #flood-controls.shown { display: flex; }
+  #flood-controls select, #flood-controls input[type=range] { background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); }
+  #flood-controls button { cursor: pointer; padding: .2rem .7rem; border: none;
+    background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+  #timeline { flex: 1 1 8rem; min-width: 8rem; }
+  #frameLabel, #floodNote, #floodHint { opacity: .8; }
   #range { opacity: .8; }
   #map { flex: 1 1 auto; min-height: 0; }
   .leaflet-container { background: var(--vscode-editor-background); }
@@ -160,9 +293,20 @@ export class DemMapPanel {
   <div id="controls">
     <label>Colormap <select id="colormap"></select></label>
     <label><input type="checkbox" id="hillshade"> Hillshade</label>
-    <label>Opacity <input type="range" id="opacity" min="0" max="100" value="70"></label>
+    <label>Terrain <input type="range" id="opacity" min="0" max="100" value="70"></label>
     <button id="fit" type="button">Fit</button>
     <span id="range"></span>
+    <span id="floodHint"></span>
+  </div>
+  <div id="flood-controls">
+    <button id="play" type="button">▶</button>
+    <input type="range" id="timeline" min="0" max="0" value="0">
+    <span id="frameLabel"></span>
+    <label>Water <select id="waterColormap"></select></label>
+    <label>Opacity <input type="range" id="waterOpacity" min="0" max="100" value="80"></label>
+    <label>fps <select id="fps"></select></label>
+    <label id="variableWrap" style="display:none">Variable <select id="variable"></select></label>
+    <span id="floodNote"></span>
   </div>
   <div id="map"></div>
   <div id="notice"></div>
