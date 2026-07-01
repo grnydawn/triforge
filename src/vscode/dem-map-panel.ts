@@ -271,6 +271,15 @@ export class DemMapPanel {
     color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); }
   #controls button { cursor: pointer; padding: .2rem .7rem; border: none;
     background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+  #flood-controls { display: none; padding: .4rem .6rem; gap: 1rem; align-items: center; flex-wrap: wrap;
+    background: var(--vscode-editor-background); border-bottom: 1px solid var(--vscode-input-border, #8884); z-index: 1100; }
+  #flood-controls.shown { display: flex; }
+  #flood-controls select, #flood-controls input[type=range] { background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, transparent); }
+  #flood-controls button { cursor: pointer; padding: .2rem .7rem; border: none;
+    background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+  #timeline { flex: 1 1 8rem; min-width: 8rem; }
+  #frameLabel, #floodNote, #floodHint { opacity: .8; }
   #range { opacity: .8; }
   #map { flex: 1 1 auto; min-height: 0; }
   .leaflet-container { background: var(--vscode-editor-background); }
@@ -283,9 +292,20 @@ export class DemMapPanel {
   <div id="controls">
     <label>Colormap <select id="colormap"></select></label>
     <label><input type="checkbox" id="hillshade"> Hillshade</label>
-    <label>Opacity <input type="range" id="opacity" min="0" max="100" value="70"></label>
+    <label>Terrain <input type="range" id="opacity" min="0" max="100" value="70"></label>
     <button id="fit" type="button">Fit</button>
     <span id="range"></span>
+    <span id="floodHint"></span>
+  </div>
+  <div id="flood-controls">
+    <button id="play" type="button">▶</button>
+    <input type="range" id="timeline" min="0" max="0" value="0">
+    <span id="frameLabel"></span>
+    <label>Water <select id="waterColormap"></select></label>
+    <label>Opacity <input type="range" id="waterOpacity" min="0" max="100" value="80"></label>
+    <label>fps <select id="fps"></select></label>
+    <label id="variableWrap" style="display:none">Variable <select id="variable"></select></label>
+    <span id="floodNote"></span>
   </div>
   <div id="map"></div>
   <div id="notice"></div>

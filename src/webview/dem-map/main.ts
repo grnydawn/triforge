@@ -8,6 +8,7 @@ const vscodeApi = acquireVsCodeApi();
 
 // Keep in sync with COLORMAP_NAMES in src/core/triton-viz/colormap.ts.
 const COLORMAP_OPTIONS = ['viridis', 'depth', 'terrain', 'grayscale', 'rainbow', 'magma', 'teal', 'water', 'blues'];
+const FPS_OPTIONS = [1, 2, 4, 8, 12];
 
 interface LatLngBounds { south: number; west: number; north: number; east: number; }
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
@@ -68,6 +69,86 @@ function initControls(): void {
   const op = $('opacity') as HTMLInputElement;
   op.addEventListener('input', () => { opacity = Number(op.value) / 100; if (overlay) overlay.setOpacity(opacity); });
   $('fit').addEventListener('click', () => { if (lastBounds) map.fitBounds(lastBounds); });
+  const wcm = $('waterColormap') as HTMLSelectElement;
+  wcm.innerHTML = COLORMAP_OPTIONS.map((n) => `<option value="${n}"${n === 'depth' ? ' selected' : ''}>${n}</option>`).join('');
+  wcm.addEventListener('change', () => vscodeApi.postMessage({ command: 'reloadFlood', colormap: wcm.value }));
+  const fpsSel = $('fps') as HTMLSelectElement;
+  fpsSel.innerHTML = FPS_OPTIONS.map((n) => `<option${n === 4 ? ' selected' : ''}>${n}</option>`).join('');
+  fpsSel.addEventListener('change', () => { fps = Number(fpsSel.value); if (playing) startPlay(); });
+  $('play').addEventListener('click', () => { playing ? stopPlay() : startPlay(); });
+  const tl = $('timeline') as HTMLInputElement;
+  tl.addEventListener('input', () => { stopPlay(); showFrame(Number(tl.value)); });
+  const wop = $('waterOpacity') as HTMLInputElement;
+  wop.addEventListener('input', () => { waterOpacity = Number(wop.value) / 100; if (floodOverlay) floodOverlay.setOpacity(waterOpacity); });
+  ($('variable') as HTMLSelectElement).addEventListener('change', (e) =>
+    vscodeApi.postMessage({ command: 'reloadFlood', variable: (e.target as HTMLSelectElement).value }));
+}
+
+// ---- Flood animation (M4e) ----
+let floodOverlay: L.ImageOverlay | undefined;
+let floodFrames: string[] = [];
+let floodFrameNumbers: number[] = [];
+let floodBox: LatLngBounds | undefined;
+let frameIdx = 0;
+let playing = false;
+let fps = 4;
+let waterOpacity = 0.8;
+let timer = 0;
+
+function showFrame(i: number): void {
+  if (!floodFrames.length || !floodBox) return;
+  frameIdx = ((i % floodFrames.length) + floodFrames.length) % floodFrames.length;
+  const b = llBounds(floodBox);
+  if (floodOverlay) {
+    floodOverlay.setUrl(floodFrames[frameIdx]);
+  } else {
+    floodOverlay = L.imageOverlay(floodFrames[frameIdx], b, { opacity: waterOpacity }).addTo(map);
+    floodOverlay.bringToFront();
+  }
+  ($('timeline') as HTMLInputElement).value = String(frameIdx);
+  $('frameLabel').textContent = `Frame ${floodFrameNumbers[frameIdx] ?? frameIdx} (${frameIdx + 1}/${floodFrames.length})`;
+}
+
+function startPlay(): void {
+  if (!floodFrames.length) return;
+  playing = true;
+  $('play').textContent = '⏸';
+  clearInterval(timer);
+  timer = setInterval(() => showFrame(frameIdx + 1), Math.round(1000 / fps));
+}
+
+function stopPlay(): void {
+  playing = false;
+  $('play').textContent = '▶';
+  clearInterval(timer);
+}
+
+function showFloodFrames(msg: any): void {
+  floodFrames = msg.frames;
+  floodFrameNumbers = msg.frameNumbers;
+  floodBox = msg.bounds;
+  $('floodHint').textContent = '';
+  $('floodNote').textContent = msg.note ?? '';
+  ($('timeline') as HTMLInputElement).max = String(Math.max(0, floodFrames.length - 1));
+  const varSel = $('variable') as HTMLSelectElement;
+  if (msg.variables && msg.variables.length > 1) {
+    varSel.innerHTML = msg.variables.map((v: string) => `<option${v === msg.variable ? ' selected' : ''}>${v}</option>`).join('');
+    $('variableWrap').style.display = '';
+  } else {
+    $('variableWrap').style.display = 'none';
+  }
+  $('flood-controls').classList.add('shown');
+  if (floodOverlay && floodBox) floodOverlay.setBounds(L.latLngBounds(llBounds(floodBox)));
+  showFrame(0);
+  if (msg.autoPlay) startPlay(); else stopPlay();
+}
+
+function hideFloodFrames(note: string): void {
+  stopPlay();
+  if (floodOverlay) { floodOverlay.remove(); floodOverlay = undefined; }
+  floodFrames = [];
+  $('flood-controls').classList.remove('shown');
+  $('floodHint').textContent = note ?? '';
 }
 
 window.addEventListener('message', (e: MessageEvent) => {
@@ -81,6 +162,10 @@ window.addEventListener('message', (e: MessageEvent) => {
     showNotice('No CRS set for this project — cannot place the DEM on the map.');
   } else if (msg.command === 'error') {
     showNotice(msg.message ?? 'Error loading the DEM.');
+  } else if (msg.command === 'floodFrames') {
+    showFloodFrames(msg);
+  } else if (msg.command === 'noFloodFrames') {
+    hideFloodFrames(msg.note);
   }
 });
 
