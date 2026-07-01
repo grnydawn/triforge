@@ -305,7 +305,7 @@ export class DemMapPanel {
         const out = buildVectorFramesMessage(this.vectorQx.slice(0, limit), this.vectorQy.slice(0, limit), this.crs, { maxArrows, scale });
         await this.panel.webview.postMessage(out);
       } catch (e) {
-        await this.panel.webview.postMessage({ command: 'noVectors', note: `No velocity output (QX/QY): ${(e as Error).message}` });
+        await this.panel.webview.postMessage({ command: 'noVectors', note: `No velocity output (QX/QY) found — run the solver with print_option=huv to enable it. (${(e as Error).message})` });
       }
       return;
     }
