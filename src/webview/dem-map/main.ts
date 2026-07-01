@@ -71,7 +71,7 @@ window.addEventListener('message', (e: MessageEvent) => {
     showOverlay(msg.dataUri, msg.bounds);
     $('range').textContent = `elev ${Math.round(msg.range.min)}–${Math.round(msg.range.max)} m`;
   } else if (msg.command === 'noDem') {
-    showNotice('No DEM in this project — run "Download DEM (OpenTopography)…".', msg.domain);
+    showNotice('No DEM in this project — run “Download DEM (OpenTopography)…”.', msg.domain);
   } else if (msg.command === 'noCrs') {
     showNotice('No CRS set for this project — cannot place the DEM on the map.');
   } else if (msg.command === 'error') {
